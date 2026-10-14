@@ -20,3 +20,6 @@ Optional browser smoke: npm run export:web; npx playwright install chromium; nod
 
 ## Feedback session
 Ask 10–15 people to try with minimal instructions. Record time-to-first-solve, repeated plays, rule confusion, difficulty choice, crashes and whether pass-and-play feels fun. Do not infer IQ or demand from praise alone. Only advance online work after correcting game clarity and blocking crashes.
+
+## Number Trail update
+Eight engine tests now include 1,000 Number Trail variants. Try starting on a blank/wrong numbered cell, a diagonal, a wall, a skipped checkpoint and finishing early. Drag in each direction, retract by one cell, undo and restart. Confirm all 40 levels are selectable and Number Trail works in local family rounds. A valid alternate full route must be accepted, not only the stored reference solution. Hints realign to a known solution and mark the score assisted.
