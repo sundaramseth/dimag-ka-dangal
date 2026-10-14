@@ -1,0 +1,52 @@
+name: Build Android test APK
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-test-apk
+  cancel-in-progress: false
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install and validate
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npm run lint
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --no-install
+      - name: Build standalone test APK
+        working-directory: apps/mobile/android
+        env:
+          CI: '1'
+          NODE_ENV: production
+        run: ./gradlew assembleRelease --no-daemon --max-workers=2 -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+      - name: Verify and package
+        run: |
+          mkdir -p apk-output
+          cp android/app/build/outputs/apk/release/app-release.apk apk-output/Dimag-Ka-Dangal-0.2.0-test.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose apk-output/Dimag-Ka-Dangal-0.2.0-test.apk
+          sha256sum apk-output/*.apk > apk-output/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Dimag-Ka-Dangal-Android-APK
+          path: apps/mobile/apk-output/
+          if-no-files-found: error
+          retention-days: 7
