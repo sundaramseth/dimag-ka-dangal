@@ -1,4 +1,14 @@
-export type Game = "path" | "sum" | "memory";
+import { makeZipLevel, ZipLevel } from "./zip";
+export {
+  makeZipLevel,
+  zipSolved,
+  zipPrefixError,
+  zipHint,
+  adjacent,
+  wallKey,
+} from "./zip";
+export type { ZipLevel } from "./zip";
+export type Game = "path" | "sum" | "memory" | "zip";
 export type Difficulty = "easy" | "medium" | "hard";
 export const ENGINE_VERSION = 1;
 export type PathLevel = {
@@ -22,7 +32,7 @@ export type MemoryLevel = {
   sequence: number[];
   revealMs: number;
 };
-export type Level = PathLevel | SumLevel | MemoryLevel;
+export type Level = PathLevel | SumLevel | MemoryLevel | ZipLevel;
 export function rng(seed: number) {
   let s = seed >>> 0;
   return () => {
@@ -35,6 +45,7 @@ export function rotate(mask: number) {
 }
 // Bits: north=1, east=2, south=4, west=8. Rotation clockwise.
 export function makeLevel(game: Game, index: number, variant = 0): Level {
+  if (game === "zip") return makeZipLevel(index, variant);
   const random = rng(1009 + index * 7919 + variant * 104729);
   const size = index < 4 ? 3 : 4;
   if (game === "path") {
