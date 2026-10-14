@@ -1,6 +1,6 @@
 # Dimag Ka Dangal
 
-An Android-first, ad-free puzzle playground for friends and families. Phase 1 is a real offline alpha: Rang Raasta (rotating paths), Jod Jamao (target sums), Yaadon Ki Baazi (memory sequence), 30 deterministic starter levels, local profiles, pass-and-play family rounds and device-only records.
+An Android-first, ad-free puzzle playground for friends and families. Phase 1 is a real offline alpha: Number Trail (ordered path with walls), Rang Raasta (rotating paths), Jod Jamao (target sums), Yaadon Ki Baazi (memory sequence), 40 deterministic starter levels, local profiles, pass-and-play family rounds and device-only records.
 
 ## Start
 Requires Node 22.13+ (SDK 57), npm, and an Android phone/emulator for native verification.
@@ -44,6 +44,7 @@ No network social data yet: friends/following, requests, public boards, cloud lo
 ## Reports
 - [Phased roadmap + full implementation brief](docs/IMPLEMENTATION_PLAN.md)
 - [Phase 1 report](docs/PHASE_1_REPORT.md)
+- [Number Trail / Phase 2 update](docs/PHASE_2_REPORT.md)
 - [Test checklist](docs/TESTING.md)
 
 App code lives in `apps/mobile/src`. Pure engine currently lives in `src/engine`; extract it to `packages/game-engine` when the Node service begins, rather than introducing unused packages now. Planned online stack: Node.js/TypeScript + Supabase Auth/Postgres, Pusher as an optional private-channel transport within verified free quotas.
