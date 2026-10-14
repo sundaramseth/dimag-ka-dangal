@@ -45,6 +45,55 @@ async function main() {
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto("http://127.0.0.1:8082");
     await page.getByText("Pick your challenge").waitFor();
+    await page.getByRole("button", { name: /Number Trail/ }).click();
+    await page.getByRole("button", { name: "Let’s play →" }).click();
+    await page.getByRole("button", { name: "Start puzzle" }).click();
+    const zip = makeLevel("zip", 0);
+    if (zip.kind !== "zip") throw Error();
+    const label = (cell: number) =>
+      `Trail cell ${cell + 1}${zip.checkpoints[cell] ? `, number ${zip.checkpoints[cell]}` : ""}`;
+    await page
+      .getByRole("button", { name: label(zip.solution[1]), exact: true })
+      .click();
+    await page.getByText("Start at number 1.", { exact: true }).waitFor();
+    await page
+      .getByRole("button", { name: label(zip.solution[0]), exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: label(zip.solution[1]), exact: true })
+      .click();
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    const first = await page
+      .getByRole("button", { name: label(zip.solution[0]), exact: true })
+      .boundingBox();
+    if (!first) throw Error("No trail cell");
+    await page.mouse.move(
+      first.x + first.width / 2,
+      first.y + first.height / 2,
+    );
+    await page.mouse.down();
+    for (const cell of zip.solution.slice(1, 4)) {
+      const box = await page
+        .getByRole("button", { name: label(cell), exact: true })
+        .boundingBox();
+      if (!box) throw Error();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, {
+        steps: 8,
+      });
+    }
+    await page.mouse.up();
+    await page.getByText("4/16 cells filled", { exact: true }).waitFor();
+    for (const cell of zip.solution.slice(4))
+      await page
+        .getByRole("button", { name: label(cell), exact: true })
+        .click();
+    await page
+      .getByRole("button", { name: "Check solution", exact: true })
+      .click();
+    await page.getByText("Nicely done!").waitFor();
+    await page.getByText("CLEAN SOLVE").waitFor();
+    await page.getByRole("button", { name: "Back home" }).click();
+    await page.getByRole("button", { name: /Rang Raasta/ }).click();
     await page.getByRole("button", { name: "Let’s play →" }).click();
     await page.getByRole("button", { name: "Start puzzle" }).click();
     const pathLevel = makeLevel("path", 0);
@@ -143,12 +192,12 @@ async function main() {
     const stored = await page.evaluate(() =>
       JSON.parse(localStorage.getItem("dangal-state-v1")!),
     );
-    assert.equal(stored.attempts.length, 5);
+    assert.equal(stored.attempts.length, 6);
     assert.equal(stored.feedback.length, 1);
     assert.equal(stored.settings.language, "hi");
     assert.equal(errors.length, 0, errors.join("\n"));
     console.log(
-      "Browser smoke passed: three clean solves, persisted profile/results/feedback/settings, two-player family rotation, Hindi reload, 320px layout, no page errors.",
+      "Browser smoke passed: four clean solves including drag-based Number Trail, persisted profile/results/feedback/settings, two-player family rotation, Hindi reload, 320px layout, no page errors.",
     );
   } finally {
     await browser.close();
