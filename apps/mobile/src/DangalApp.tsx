@@ -40,13 +40,23 @@ type Family = {
   results: Attempt[];
   seed: number;
 };
-const games: Game[] = ["path", "sum", "memory"];
+const games: Game[] = ["zip", "path", "sum", "memory"];
 const names = {
-  en: { path: "Rang Raasta", sum: "Jod Jamao", memory: "Yaadon Ki Baazi" },
-  hi: { path: "रंग रास्ता", sum: "जोड़ जमाओ", memory: "यादों की बाज़ी" },
+  en: {
+    zip: "Number Trail",
+    path: "Rang Raasta",
+    sum: "Jod Jamao",
+    memory: "Yaadon Ki Baazi",
+  },
+  hi: {
+    zip: "अंक यात्रा",
+    path: "रंग रास्ता",
+    sum: "जोड़ जमाओ",
+    memory: "यादों की बाज़ी",
+  },
 };
-const icons = { path: "⌁", sum: "+", memory: "▦" };
-const accents = { path: C.teal, sum: C.coral, memory: C.gold };
+const icons = { zip: "1→", path: "⌁", sum: "+", memory: "▦" };
+const accents = { zip: "#91B9FF", path: C.teal, sum: C.coral, memory: C.gold };
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 export default function DangalApp() {
   const [state, setState] = useState<LocalState | null>(null),
@@ -55,7 +65,7 @@ export default function DangalApp() {
     [round, setRound] = useState<Round | null>(null),
     [result, setResult] = useState<Attempt | null>(null),
     [family, setFamily] = useState<Family | null>(null),
-    [selectedGame, setSelectedGame] = useState<Game>("path"),
+    [selectedGame, setSelectedGame] = useState<Game>("zip"),
     [index, setIndex] = useState(0),
     [players, setPlayers] = useState<string[]>(["Player 1", "Player 2"]),
     [profileName, setProfileName] = useState(""),
@@ -211,7 +221,7 @@ export default function DangalApp() {
   };
   const selector = (
     <View style={{ gap: 12 }}>
-      <View style={styles.row}>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
         {games.map((g) => (
           <Pressable
             accessibilityRole="button"
@@ -224,7 +234,8 @@ export default function DangalApp() {
             style={[
               styles.chip,
               {
-                flex: 1,
+                width: "47%",
+                minHeight: 88,
                 borderWidth: 1,
                 borderColor: selectedGame === g ? accents[g] : C.line,
               },
@@ -453,8 +464,8 @@ export default function DangalApp() {
               </Text>
               <Txt>
                 {t(
-                  "Three pocket-sized puzzles. Play alone or pass the phone around.",
-                  "तीन छोटे मजेदार puzzles। अकेले खेलें या परिवार के साथ।",
+                  "Four pocket-sized puzzles. Play alone or pass the phone around.",
+                  "चार छोटे मजेदार puzzles। अकेले खेलें या परिवार के साथ।",
                 )}
               </Txt>
               <Button
@@ -473,7 +484,7 @@ export default function DangalApp() {
                 <Txt muted>{t("solves on device", "फोन के solves")}</Txt>
               </View>
               <View style={styles.stat}>
-                <Text style={styles.statValue}>30</Text>
+                <Text style={styles.statValue}>40</Text>
                 <Txt muted>{t("starter levels", "शुरुआती levels")}</Txt>
               </View>
             </View>
@@ -823,7 +834,7 @@ export default function DangalApp() {
                     JSON.stringify(
                       {
                         app: "Dimag Ka Dangal",
-                        version: "0.1.0",
+                        version: "0.2.0",
                         feedback: state.feedback,
                         attempts: state.attempts,
                       },

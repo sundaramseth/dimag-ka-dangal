@@ -8,8 +8,12 @@ import {
   pathSolved,
   rotate,
   sumSolved,
+  zipHint,
+  zipPrefixError,
+  zipSolved,
 } from "./engine";
 import { Button, C, styles, Txt } from "./ui";
+import { ZipBoard } from "./ZipBoard";
 export function GameScreen({
   game,
   index,
@@ -33,6 +37,12 @@ export function GameScreen({
 }) {
   const [level] = useState(() => makeLevel(game, index, variant));
   const [phase, setPhase] = useState<"ready" | "play" | "reveal">("ready");
+  const [trail, setTrail] = useState<number[]>([]);
+  const trailRef = useRef<number[]>([]);
+  const changeTrail = (path: number[]) => {
+    trailRef.current = path;
+    setTrail(path);
+  };
   const [tiles, setTiles] = useState(level.kind === "path" ? level.tiles : []);
   const [selected, setSelected] = useState(
     level.kind === "sum" ? level.values.map(() => false) : [],
@@ -98,6 +108,12 @@ export function GameScreen({
     );
   }
   function undo() {
+    if (level.kind === "zip") {
+      changeTrail(trailRef.current.slice(0, -1));
+      setMoves((m) => m + 1);
+      setMessage("");
+      return;
+    }
     const last = history.at(-1);
     if (!last) return;
     setTiles(last.tiles);
@@ -118,6 +134,7 @@ export function GameScreen({
     setFlash(-1);
     setMessage("");
     setHistory([]);
+    changeTrail([]);
     setPhase("ready");
   }
   function begin() {
@@ -139,11 +156,13 @@ export function GameScreen({
   }
   function check() {
     if (
-      level.kind === "path"
-        ? pathSolved(level, tiles)
-        : level.kind === "sum"
-          ? sumSolved(level, selected)
-          : false
+      level.kind === "zip"
+        ? zipSolved(level, trail)
+        : level.kind === "path"
+          ? pathSolved(level, tiles)
+          : level.kind === "sum"
+            ? sumSolved(level, selected)
+            : false
     )
       finish();
     else
@@ -159,7 +178,9 @@ export function GameScreen({
     setMessage(
       hi ? "यह assisted attempt है।" : "This is now an assisted attempt.",
     );
-    if (level.kind === "path") {
+    if (level.kind === "zip") {
+      changeTrail(zipHint(level, trailRef.current));
+    } else if (level.kind === "path") {
       const i = tiles.findIndex((v, i) => v !== level.solution[i]);
       if (i >= 0)
         setTiles(tiles.map((v, k) => (k === i ? level.solution[i] : v)));
@@ -170,17 +191,63 @@ export function GameScreen({
     } else reveal();
   }
   const rule =
-    game === "path"
+    game === "zip"
       ? hi
-        ? "हर tile को tap करके घुमाएँ। IN से OUT तक सभी tiles से जुड़ा रास्ता बनाएँ।"
-        : "Tap to rotate tiles. Connect IN to OUT through every tile."
-      : game === "sum"
+        ? "1 से शुरू करके numbers क्रम में जोड़ें। हर खाना एक बार भरें। केवल ऊपर/नीचे/बाएँ/दाएँ चलें और दीवार पार न करें।"
+        : "Start at 1. Connect numbers in order, cover every cell once, move only up/down/left/right, and avoid walls."
+      : game === "path"
         ? hi
-          ? "Numbers चुनें। हर row और column का योग दिए target के बराबर करें।"
-          : "Select numbers so every row and column matches its target."
-        : hi
-          ? "चमकते tiles का क्रम याद रखें। फिर उसी क्रम में tap करें।"
-          : "Remember the glowing tiles. Tap them in the same order.";
+          ? "हर tile को tap करके घुमाएँ। IN से OUT तक सभी tiles से जुड़ा रास्ता बनाएँ।"
+          : "Tap to rotate tiles. Connect IN to OUT through every tile."
+        : game === "sum"
+          ? hi
+            ? "Numbers चुनें। हर row और column का योग दिए target के बराबर करें।"
+            : "Select numbers so every row and column matches its target."
+          : hi
+            ? "चमकते tiles का क्रम याद रखें। फिर उसी क्रम में tap करें।"
+            : "Remember the glowing tiles. Tap them in the same order.";
+  function trailCell(cell: number) {
+    if (level.kind !== "zip" || phase !== "play") return;
+    const current = trailRef.current;
+    if (current.at(-1) === cell) return;
+    if (current.length > 1 && current.at(-2) === cell) {
+      changeTrail(current.slice(0, -1));
+      setMoves((m) => m + 1);
+      tap();
+      return;
+    }
+    const next = [...current, cell],
+      error = zipPrefixError(level, next);
+    if (error) {
+      const copy = {
+        start: ["Start at number 1.", "Number 1 से शुरू करें।"],
+        bounds: ["Stay on the board.", "Board के अंदर रहें।"],
+        repeat: [
+          "No overlaps. Use Undo to go back.",
+          "दोबारा उसी खाने पर नहीं। Undo लें।",
+        ],
+        adjacent: [
+          "Move to an adjacent cell, without diagonals.",
+          "पास वाले खाने में चलें; diagonal नहीं।",
+        ],
+        wall: ["A wall blocks that move.", "इस रास्ते में दीवार है।"],
+        order: [
+          "Visit the next number in order.",
+          "Numbers को क्रम में जोड़ें।",
+        ],
+        finish: [
+          "Fill every cell before the final number.",
+          "आखिरी number से पहले सभी खाने भरें।",
+        ],
+      };
+      setMessage(copy[error][hi ? 1 : 0]);
+      return;
+    }
+    tap();
+    changeTrail(next);
+    setMoves((m) => m + 1);
+    setMessage("");
+  }
   const glyph: Record<number, string> = {
     3: "└",
     6: "┌",
@@ -223,6 +290,9 @@ export function GameScreen({
             </View>
           </View>
           <View style={[styles.card, { padding: 12 }]}>
+            {level.kind === "zip" && (
+              <ZipBoard level={level} path={trail} onCell={trailCell} hi={hi} />
+            )}
             {level.kind === "path" && (
               <>
                 <View style={styles.between}>
@@ -460,7 +530,9 @@ export function GameScreen({
               <View style={{ flex: 1 }}>
                 <Button
                   secondary
-                  disabled={!history.length}
+                  disabled={
+                    level.kind === "zip" ? !trail.length : !history.length
+                  }
                   label={hi ? "पिछली चाल" : "Undo"}
                   onPress={undo}
                 />
