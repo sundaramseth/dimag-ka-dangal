@@ -1,6 +1,8 @@
 # Dimag Ka Dangal
 
-An Android-first, ad-free puzzle playground for friends and families. Phase 1 is a real offline alpha: Number Trail (ordered path with walls), Rang Raasta (rotating paths), Jod Jamao (target sums), Yaadon Ki Baazi (memory sequence), 40 deterministic starter levels, local profiles, pass-and-play family rounds and device-only records.
+An Android-first, ad-free offline game. v0.3.0 focuses on **Number Trail** and **Maze Runner**: 30 sequential puzzles per game, a park journey map, persistent unlocks, score/streak, same-phone 2–4 player battles and native score/app sharing. The garden maze uses original hedge, tree, rider and house artwork. Gameplay is a fixed screen; only the journey map scrolls. Removed games remain as legacy engine code so saved history is preserved, but are not exposed in the app.
+
+[Version 0.3.0 report](docs/PHASE_3_REPORT.md) includes validation and Android retest requirements.
 
 ## Start
 Requires Node 22.13+ (SDK 57), npm, and an Android phone/emulator for native verification.
@@ -37,7 +39,7 @@ Windows: `gradlew.bat assembleRelease`. The output is normally `app/build/output
 Optional EAS preview config is supplied, but requires your Expo account and is subject to free build quotas. No EAS build was claimed or purchased here. An Expo export is a JS/assets bundle, not an APK.
 
 ## Implemented / deferred
-Android persistence uses expo-sqlite with parameterized writes and ordered saves. Browser preview uses localStorage. 2,000 most recent attempts retained. Results/hints/backgrounding are labelled. Feedback remains local until explicit sharing. Profile and exported family names may contain personal data; share intentionally.
+Android persistence uses expo-sqlite with parameterized writes and ordered saves. Browser preview uses localStorage. Attempts retained to preserve puzzle unlock history. Results/hints/backgrounding are labelled. Feedback remains local until explicit sharing. Profile and exported family names may contain personal data; share intentionally.
 
 No network social data yet: friends/following, requests, public boards, cloud login, realtime invitations/chat and Node backend are subsequent phases. Do not add fake users/scores to imply these work. No ads, phone OTP, AI services or paid hosting.
 
