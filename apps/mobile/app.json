@@ -2,10 +2,10 @@
   "expo": {
     "name": "Dimag Ka Dangal",
     "slug": "dimag-ka-dangal",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
     },
@@ -16,7 +16,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.sundaramseth.dimagkadangal",
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "bundler": "metro",
@@ -30,7 +30,7 @@
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0A1123"
+      "backgroundColor": "#E8EEDB"
     }
   }
 }
