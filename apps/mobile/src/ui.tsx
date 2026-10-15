@@ -1,15 +1,15 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 export const C = {
-  bg: "#0A1123",
-  panel: "#141F36",
-  panel2: "#1D2B47",
-  ink: "#F5F7FF",
-  muted: "#A5B5D2",
-  teal: "#69E4CE",
-  coral: "#FF9D88",
-  gold: "#FFD37B",
-  line: "#293953",
+  bg: "#E8EEDB",
+  panel: "#F7F6EB",
+  panel2: "#DCE5CF",
+  ink: "#243A2B",
+  muted: "#657558",
+  teal: "#83B96B",
+  coral: "#AD583D",
+  gold: "#CA8D32",
+  line: "#CBD7B9",
 };
 export const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },

@@ -6,60 +6,80 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { House, Rider } from "./Scenery";
 import { ZipLevel, wallKey } from "./engine";
-import { C, Txt } from "./ui";
+
 export function ZipBoard({
   level,
   path,
   onCell,
-  hi,
+  maxWidth = 340,
+  maze = false,
 }: {
-  level: ZipLevel;
+  level: Pick<ZipLevel, "size" | "checkpoints" | "walls">;
   path: number[];
   onCell: (cell: number) => void;
   hi: boolean;
+  maxWidth?: number;
+  maze?: boolean;
 }) {
   const { width } = useWindowDimensions();
-  const boardWidth = Math.min(width - 68, 340),
+  const boardWidth = Math.min(width - 48, maxWidth),
     cellSize = boardWidth / level.size;
-  const board = useRef<View>(null),
-    callbacks = useRef({ onCell, cellSize, size: level.size });
-  React.useEffect(() => {
+  const callbacks = useRef({ onCell, cellSize, size: level.size });
+  React.useLayoutEffect(() => {
     callbacks.current = { onCell, cellSize, size: level.size };
   }, [onCell, cellSize, level.size]);
-  const geometry = useRef({ x: 0, y: 0 }),
+  const lastPoint = useRef<{ x: number; y: number } | null>(null),
     lastDrag = useRef(-1);
   const dragTo = (x: number, y: number) => {
     const { cellSize, size, onCell } = callbacks.current;
-    const col = Math.floor((x - geometry.current.x) / cellSize),
-      row = Math.floor((y - geometry.current.y) / cellSize);
-    if (col < 0 || row < 0 || col >= size || row >= size) return;
-    const cell = row * size + col;
-    if (cell !== lastDrag.current) {
-      lastDrag.current = cell;
-      onCell(cell);
+    const previous = lastPoint.current;
+    const steps = previous
+      ? Math.max(
+          1,
+          Math.ceil(
+            Math.hypot(x - previous.x, y - previous.y) / (cellSize / 4),
+          ),
+        )
+      : 1;
+    for (let i = 1; i <= steps; i++) {
+      const px = previous ? previous.x + ((x - previous.x) * i) / steps : x,
+        py = previous ? previous.y + ((y - previous.y) * i) / steps : y;
+      const col = Math.floor(px / cellSize),
+        row = Math.floor(py / cellSize);
+      if (col < 0 || row < 0 || col >= size || row >= size) continue;
+      const cell = row * size + col;
+      if (cell !== lastDrag.current) {
+        lastDrag.current = cell;
+        onCell(cell);
+      }
     }
+    lastPoint.current = { x, y };
   };
-  // PanResponder stores event callbacks; refs below are read only when gestures fire.
+  // Event callbacks read refs only during a gesture.
   // eslint-disable-next-line react-hooks/refs
   const [responder] = React.useState(() =>
     PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, g) =>
-        Math.abs(g.dx) + Math.abs(g.dy) > 4,
-      onPanResponderGrant: (_, g) => {
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (e) => {
         lastDrag.current = -1;
-        board.current?.measureInWindow((x, y) => {
-          geometry.current = { x, y };
-          dragTo(g.x0, g.y0);
-          dragTo(g.moveX, g.moveY);
-        });
+        lastPoint.current = null;
+        dragTo(e.nativeEvent.locationX, e.nativeEvent.locationY);
       },
-      onPanResponderMove: (_, g) => dragTo(g.moveX, g.moveY),
+      onPanResponderMove: (e) =>
+        dragTo(e.nativeEvent.locationX, e.nativeEvent.locationY),
       onPanResponderRelease: () => {
         lastDrag.current = -1;
+        lastPoint.current = null;
+      },
+      onPanResponderTerminate: () => {
+        lastDrag.current = -1;
+        lastPoint.current = null;
       },
       onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
     }),
   );
   const centre = (cell: number) => ({
@@ -69,22 +89,16 @@ export function ZipBoard({
   const walls = new Set(level.walls.map(([a, b]) => wallKey(a, b)));
   return (
     <View style={{ gap: 12, alignItems: "center" }}>
-      <Txt muted>
-        {hi
-          ? `${path.length}/${level.size * level.size} खाने भरे`
-          : `${path.length}/${level.size * level.size} cells filled`}
-      </Txt>
       <View
-        ref={board}
         {...responder.panHandlers}
         style={{
           width: boardWidth,
           height: boardWidth,
-          backgroundColor: "#F1F5FF",
-          borderRadius: 16,
+          backgroundColor: maze ? "#EEF0CF" : "#FAF8EC",
+          borderRadius: maze ? 4 : 16,
           overflow: "hidden",
           borderWidth: 1,
-          borderColor: "#6A7B99",
+          borderColor: maze ? "#427442" : "#AAB497",
         }}
       >
         {Array.from({ length: level.size * level.size }, (_, cell) => (
@@ -94,15 +108,19 @@ export function ZipBoard({
             accessibilityLabel={`Trail cell ${cell + 1}${level.checkpoints[cell] ? `, number ${level.checkpoints[cell]}` : ""}`}
             accessibilityState={{ selected: path.includes(cell) }}
             onPress={() => onCell(cell)}
+            pointerEvents="none"
+            onAccessibilityTap={() => onCell(cell)}
+            accessibilityActions={[{ name: "activate" }]}
+            onAccessibilityAction={() => onCell(cell)}
             style={{
               position: "absolute",
               left: (cell % level.size) * cellSize,
               top: Math.floor(cell / level.size) * cellSize,
               width: cellSize,
               height: cellSize,
-              borderWidth: 0.5,
-              borderColor: "#A4AEC2",
-              backgroundColor: path.includes(cell) ? "#BBEEDC" : "transparent",
+              borderWidth: maze ? 0 : 0.5,
+              borderColor: "#CFD5BE",
+              backgroundColor: path.includes(cell) ? "#D1E3B5" : "transparent",
             }}
           />
         ))}
@@ -129,7 +147,7 @@ export function ZipBoard({
                   top: Math.min(a.y, b.y) - (horizontal ? 5 : 0),
                   width: horizontal ? Math.abs(b.x - a.x) : 10,
                   height: horizontal ? 10 : Math.abs(b.y - a.y),
-                  backgroundColor: "#058A68",
+                  backgroundColor: maze ? "#E2AC5A" : "#438B61",
                 }}
               />
             );
@@ -146,7 +164,7 @@ export function ZipBoard({
                   width: 10,
                   height: 10,
                   borderRadius: 5,
-                  backgroundColor: "#058A68",
+                  backgroundColor: maze ? "#E2AC5A" : "#438B61",
                 }}
               />
             );
@@ -169,7 +187,10 @@ export function ZipBoard({
                         : (Math.floor(a / level.size) + 1) * cellSize - 3,
                       width: horizontal ? 6 : cellSize,
                       height: horizontal ? cellSize : 6,
-                      backgroundColor: "#101728",
+                      backgroundColor: maze ? "#427442" : "#334734",
+                      borderRadius: maze ? 3 : 0,
+                      borderWidth: maze ? 1 : 0,
+                      borderColor: "#78A35C",
                       zIndex: 3,
                     }}
                   />
@@ -189,7 +210,11 @@ export function ZipBoard({
                   width: 30,
                   height: 30,
                   borderRadius: 15,
-                  backgroundColor: path.at(-1) === cell ? "#058A68" : "#101728",
+                  backgroundColor: maze
+                    ? "#F5EDCC"
+                    : path.at(-1) === cell
+                      ? "#438B61"
+                      : "#263F32",
                   alignItems: "center",
                   justifyContent: "center",
                   borderWidth: 2,
@@ -197,21 +222,24 @@ export function ZipBoard({
                   zIndex: 4,
                 }}
               >
-                <Text
-                  style={{ fontSize: 16, fontWeight: "800", color: "white" }}
-                >
-                  {number}
-                </Text>
+                {maze ? (
+                  number === 1 ? (
+                    <Rider />
+                  ) : (
+                    <House />
+                  )
+                ) : (
+                  <Text
+                    style={{ fontSize: 16, fontWeight: "800", color: "white" }}
+                  >
+                    {number}
+                  </Text>
+                )}
               </View>
             );
           })}
         </View>
       </View>
-      <Text style={{ color: C.muted, fontSize: 12, textAlign: "center" }}>
-        {hi
-          ? "1 से शुरू करें • सभी खाने भरें • आखिरी number पर खत्म करें"
-          : "Start at 1 • Fill every cell • Finish at the last number"}
-      </Text>
     </View>
   );
 }

@@ -1,10 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  BackHandler,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   Share,
+  Switch,
   Text,
   TextInput,
   View,
@@ -12,102 +16,89 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
-import {
-  Attempt,
-  compareAttempts,
-  formatTime,
-  Game,
-  levelDifficulty,
-} from "./engine";
-import { LocalState, Profile } from "./storage/types";
+import { Attempt, compareAttempts, formatTime } from "./engine";
+import { points, PUZZLES, streak, unlocked } from "./engine/journey";
+import { LocalState } from "./storage/types";
 import { loadState, saveState } from "./storage";
-import { Button, C, Pill, styles, Txt } from "./ui";
-import { GameScreen } from "./GameScreen";
-type Tab = "play" | "family" | "scores" | "profile";
+import { ParkEdge } from "./Scenery";
+import { ActiveGame, GameScreen } from "./GameScreen";
+import { Button, C, styles } from "./ui";
 type Round = {
-  game: Game;
-  level: number;
+  game: ActiveGame;
+  index: number;
   variant: number;
-  profile: Profile;
+  name: string;
+  profileId: string;
   sessionId?: string;
 };
-type Family = {
+type Battle = {
   id: string;
-  players: Profile[];
-  turn: number;
-  game: Game;
-  level: number;
-  results: Attempt[];
   seed: number;
+  players: string[];
+  turn: number;
+  results: Attempt[];
 };
-const games: Game[] = ["zip", "path", "sum", "memory"];
-const names = {
-  en: {
-    zip: "Number Trail",
-    path: "Rang Raasta",
-    sum: "Jod Jamao",
-    memory: "Yaadon Ki Baazi",
-  },
-  hi: {
-    zip: "अंक यात्रा",
-    path: "रंग रास्ता",
-    sum: "जोड़ जमाओ",
-    memory: "यादों की बाज़ी",
-  },
-};
-const icons = { zip: "1→", path: "⌁", sum: "+", memory: "▦" };
-const accents = { zip: "#91B9FF", path: C.teal, sum: C.coral, memory: C.gold };
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const names = { zip: "Number Trail", maze: "Maze Runner" };
 export default function DangalApp() {
   const [state, setState] = useState<LocalState | null>(null),
-    [error, setError] = useState(""),
-    [tab, setTab] = useState<Tab>("play"),
+    [game, setGame] = useState<ActiveGame>("zip"),
     [round, setRound] = useState<Round | null>(null),
     [result, setResult] = useState<Attempt | null>(null),
-    [family, setFamily] = useState<Family | null>(null),
-    [selectedGame, setSelectedGame] = useState<Game>("zip"),
-    [index, setIndex] = useState(0),
-    [players, setPlayers] = useState<string[]>(["Player 1", "Player 2"]),
-    [profileName, setProfileName] = useState(""),
-    [feedback, setFeedback] = useState(""),
-    [rating, setRating] = useState(5),
-    [saved, setSaved] = useState(false);
-  const writing = useRef(Promise.resolve());
+    [panel, setPanel] = useState<"settings" | "battle" | null>(null),
+    [battle, setBattle] = useState<Battle | null>(null),
+    [players, setPlayers] = useState(["Player 1", "Player 2"]),
+    [error, setError] = useState("");
+  const writing = useRef(Promise.resolve()),
+    [scale] = useState(() => new Animated.Value(0.9));
   useEffect(() => {
     loadState()
       .then(setState)
-      .catch(() =>
-        setError("Local storage could not be opened. Reload and try again."),
-      );
+      .catch(() => setError("Storage unavailable. Restart the app."));
   }, []);
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (panel) {
+        setPanel(null);
+        return true;
+      }
+      if (round || result) {
+        setRound(null);
+        setResult(null);
+        setBattle(null);
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [panel, round, result]);
+  useEffect(() => {
+    if (!result) return;
+    scale.setValue(state?.settings.reducedMotion ? 1 : 0.9);
+    if (!state?.settings.reducedMotion)
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+        friction: 6,
+      }).start();
+  }, [result, scale, state?.settings.reducedMotion]);
   const update = (next: LocalState) => {
     setState(next);
     writing.current = writing.current
       .catch(() => {})
       .then(() => saveState(next))
       .catch(() =>
-        setError(
-          "Could not save to this device. Your session is still visible; export results before closing.",
-        ),
+        setError("Could not save. Please keep this app open and retry."),
       );
   };
   if (!state)
     return (
       <SafeAreaView style={styles.root}>
-        <View style={styles.content}>
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
           {error ? (
-            <>
-              <Txt>{error}</Txt>
-              <Button
-                label="Retry"
-                onPress={() => {
-                  setError("");
-                  loadState()
-                    .then(setState)
-                    .catch(() => setError("Storage unavailable."));
-                }}
-              />
-            </>
+            <Text style={styles.text}>{error}</Text>
           ) : (
             <ActivityIndicator color={C.teal} />
           )}
@@ -119,775 +110,548 @@ export default function DangalApp() {
   const current =
     state.profiles.find((p) => p.id === state.settings.activeProfileId) ||
     state.profiles[0];
+  const next = unlocked(state.attempts, current.id, game);
+  const activeAttempts = state.attempts.filter(
+    (a) => a.profileId === current.id && a.game === game && !a.sessionId,
+  );
+  const completed = new Set(activeAttempts.map((a) => a.level));
+  const total = Math.round(
+    [...new Set(activeAttempts.map((a) => a.level))].reduce(
+      (sum, i) =>
+        sum +
+        Math.max(...activeAttempts.filter((a) => a.level === i).map(points)),
+      0,
+    ),
+  );
   const tap = () => {
     if (state.settings.haptics && Platform.OS !== "web")
       Haptics.selectionAsync().catch(() => {});
   };
-  const select = (next: Tab) => {
+  const start = (index: number) => {
     tap();
-    setTab(next);
-    setSaved(false);
+    setBattle(null);
+    setResult(null);
+    setRound({
+      game,
+      index,
+      variant: 0,
+      name: current.name,
+      profileId: current.id,
+    });
+  };
+  const share = async () => {
+    try {
+      await Share.share({
+        message: `Dimag Ka Dangal — ${names[game]}${result ? ` · Puzzle ${result.level + 1} · ${formatTime(result.elapsedMs)} · ${Math.round(points(result))} points` : ""}\nTry the Android test app and send your review.\nhttps://github.com/sundaramseth/dimag-ka-dangal/actions`,
+      });
+    } catch {
+      setError(t("Share unavailable.", "शेयर नहीं हुआ।"));
+    }
   };
   const finish = (stats: Pick<Attempt, "elapsedMs" | "moves" | "assisted">) => {
     if (!round) return;
-    const attempt: Attempt = {
+    const a: Attempt = {
       ...stats,
       id: uid(),
-      profileId: round.profile.id,
-      name: round.profile.name,
+      profileId: round.profileId,
+      name: round.name,
       game: round.game,
-      level: round.level,
+      level: round.index,
       variant: round.variant,
       sessionId: round.sessionId,
       createdAt: new Date().toISOString(),
     };
-    update({ ...state, attempts: [attempt, ...state.attempts].slice(0, 2000) });
-    if (family) setFamily({ ...family, results: [...family.results, attempt] });
-    setResult(attempt);
+    update({ ...state, attempts: [a, ...state.attempts] });
+    if (battle) setBattle({ ...battle, results: [...battle.results, a] });
     setRound(null);
+    setResult(a);
+    tap();
   };
-  const startSolo = () => {
-    setFamily(null);
-    setResult(null);
-    setRound({
-      game: selectedGame,
-      level: index,
-      variant: 0,
-      profile: current,
-    });
-  };
-  const startFamily = () => {
-    const valid = players.map((n) => n.trim()).filter(Boolean);
+  const startBattle = () => {
+    const valid = players.map((p) => p.trim());
     if (
-      valid.length < 2 ||
-      new Set(valid.map((n) => n.toLowerCase())).size !== valid.length
+      valid.some((p) => !p) ||
+      new Set(valid.map((p) => p.toLowerCase())).size !== valid.length
     ) {
-      setError(
-        t("Use 2–4 different player names.", "2–4 अलग player names दें।"),
-      );
+      setError(t("Use different player names.", "अलग नाम दें।"));
       return;
     }
-    const id = uid();
-    const seed = Math.floor(Math.random() * 10000);
-    const members = valid.map((name, i) => ({
-      id: `${id}-${i}`,
-      name,
-      avatar: i,
-    }));
-    const f: Family = {
-      id,
-      players: members,
+    const b = {
+      id: uid(),
+      seed: 1 + Math.floor(Math.random() * 999999),
+      players: valid,
       turn: 0,
-      game: selectedGame,
-      level: index,
       results: [],
-      seed,
     };
-    setFamily(f);
+    setBattle(b);
     setResult(null);
+    setPanel(null);
     setRound({
-      game: f.game,
-      level: f.level,
-      variant: seed,
-      profile: members[0],
-      sessionId: id,
+      game,
+      index: next,
+      variant: b.seed,
+      name: valid[0],
+      profileId: `battle-${b.id}-0`,
+      sessionId: b.id,
     });
   };
   const nextTurn = () => {
-    if (!family) return;
-    const turn = family.turn + 1;
-    if (turn >= family.players.length) return;
-    setFamily({ ...family, turn });
+    if (!battle || !result) return;
+    const turn = battle.turn + 1;
+    setBattle({ ...battle, turn });
     setResult(null);
     setRound({
-      game: family.game,
-      level: family.level,
-      variant: family.seed + turn,
-      profile: family.players[turn],
-      sessionId: family.id,
+      game: result.game as ActiveGame,
+      index: result.level,
+      variant: battle.seed,
+      name: battle.players[turn],
+      profileId: `battle-${battle.id}-${turn}`,
+      sessionId: battle.id,
     });
   };
-  const share = async (message: string) => {
-    try {
-      await Share.share({ message });
-    } catch {
-      setError(
-        t(
-          "Sharing unavailable. Try again on your phone.",
-          "Share नहीं हुआ। अपने phone पर फिर कोशिश करें।",
-        ),
-      );
-    }
-  };
-  const selector = (
-    <View style={{ gap: 12 }}>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-        {games.map((g) => (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: selectedGame === g }}
-            key={g}
-            onPress={() => {
-              tap();
-              setSelectedGame(g);
-            }}
-            style={[
-              styles.chip,
-              {
-                width: "47%",
-                minHeight: 88,
-                borderWidth: 1,
-                borderColor: selectedGame === g ? accents[g] : C.line,
-              },
-            ]}
-          >
-            <Text
-              style={{ textAlign: "center", color: accents[g], fontSize: 24 }}
-            >
-              {icons[g]}
-            </Text>
-            <Text
-              style={{
-                textAlign: "center",
-                color: C.ink,
-                fontSize: 11,
-                marginTop: 6,
-              }}
-            >
-              {names[hi ? "hi" : "en"][g]}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      <Txt muted>
-        {t("Choose your level", "अपना स्तर चुनें")} · {levelDifficulty(index)}
-      </Txt>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {Array.from({ length: 10 }, (_, i) => (
-          <Pressable
-            key={i}
-            accessibilityRole="button"
-            accessibilityLabel={`Level ${i + 1}`}
-            accessibilityState={{ selected: index === i }}
-            onPress={() => setIndex(i)}
-            style={[
-              styles.chip,
-              {
-                minWidth: 46,
-                minHeight: 46,
-                justifyContent: "center",
-                backgroundColor: index === i ? C.teal : C.panel2,
-              },
-            ]}
-          >
-            <Text
-              style={{
-                textAlign: "center",
-                fontWeight: "800",
-                color: index === i ? C.bg : C.ink,
-              }}
-            >
-              {i + 1}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
+  const settings = state.settings;
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar style="light" />
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.content}
-      >
-        <View style={styles.between}>
-          <Text style={styles.label}>DIMAG KA DANGAL</Text>
-          <Pill text={t("OFFLINE ALPHA", "ऑफलाइन अल्फा")} />
-        </View>
-        {!!error && (
-          <View style={styles.card}>
-            <Txt>{error}</Txt>
-            <Button
-              label={t("Dismiss", "बंद करें")}
-              secondary
-              onPress={() => setError("")}
-            />
-          </View>
-        )}
-        {round ? (
-          <View style={{ gap: 14 }}>
-            <Pill
-              text={`${round.profile.name}${round.sessionId ? ` · ${t("FAMILY TURN", "फैमिली टर्न")}` : ""}`}
-            />
-            <GameScreen
-              key={`${round.profile.id}-${round.game}-${round.level}-${round.variant}`}
-              game={round.game}
-              index={round.level}
-              variant={round.variant}
-              name={names[hi ? "hi" : "en"][round.game]}
-              hi={hi}
-              reducedMotion={state.settings.reducedMotion}
-              tap={tap}
-              onFinish={finish}
-              onExit={() => {
-                setRound(null);
-                setFamily(null);
-                setTab("play");
-              }}
-            />
-          </View>
-        ) : result ? (
-          <>
-            <View
-              style={[
-                styles.card,
-                { alignItems: "center", paddingVertical: 32 },
-              ]}
-            >
-              <Text style={{ fontSize: 58, color: C.gold }}>✦</Text>
-              <Pill
-                text={
-                  result.assisted
-                    ? t("ASSISTED SOLVE", "HINT के साथ")
-                    : t("CLEAN SOLVE", "बिना HINT")
-                }
-              />
-              <Text style={styles.title}>{t("Nicely done!", "शानदार!")}</Text>
-              <Txt>
-                {result.name} · {names[hi ? "hi" : "en"][result.game]}
-              </Txt>
-              <Text style={{ fontSize: 56, color: C.ink, fontWeight: "800" }}>
-                {formatTime(result.elapsedMs)}
-              </Text>
-              <Txt muted>
-                {result.moves} {t("moves", "चालें")} ·{" "}
-                {t("saved on this device", "इस phone पर save")}
-              </Txt>
-            </View>
-            {family && (
-              <View style={styles.card}>
-                <Text style={styles.h2}>
-                  {t("Family standings", "फैमिली स्कोर")}
-                </Text>
-                {[...family.results].sort(compareAttempts).map((a, i) => (
-                  <View key={a.id} style={styles.between}>
-                    <Txt>
-                      {i + 1}. {a.name}
-                      {a.assisted ? " ✦" : ""}
-                    </Txt>
-                    <Txt>{formatTime(a.elapsedMs)}</Txt>
-                  </View>
-                ))}
-                <Txt muted>
-                  {t(
-                    "Fresh boards each turn. Casual family play; hints rank after clean solves.",
-                    "हर turn पर नया board। बिना hint वाले results पहले।",
-                  )}
-                </Txt>
-              </View>
-            )}
-            {family && family.turn + 1 < family.players.length ? (
-              <Button
-                label={`${t("Pass phone to", "फोन दें")} ${family.players[family.turn + 1].name} →`}
-                onPress={nextTurn}
-              />
-            ) : (
-              <Button
-                label={t("Play again", "फिर खेलें")}
-                onPress={() => {
-                  if (family) {
-                    setResult(null);
-                    startFamily();
-                  } else startSolo();
-                }}
-              />
-            )}
-            {!family && index < 9 && (
-              <Button
-                label={t("Next level →", "अगला स्तर →")}
-                onPress={() => {
-                  const next = index + 1;
-                  setIndex(next);
-                  setResult(null);
-                  setRound({
-                    game: selectedGame,
-                    level: next,
-                    variant: 0,
-                    profile: current,
-                  });
-                }}
-              />
-            )}
-            <Button
-              label={t("Share result", "Result शेयर करें")}
-              secondary
-              onPress={() =>
-                share(
-                  `Dimag Ka Dangal: ${result.name} solved ${names.en[result.game]} level ${result.level + 1} in ${formatTime(result.elapsedMs)} (${result.assisted ? "assisted" : "clean"}). Offline alpha — can you beat it?`,
-                )
-              }
-            />
-            <Button
-              label={t("Back home", "होम पर जाएँ")}
-              secondary
-              onPress={() => {
-                setResult(null);
-                setFamily(null);
-                setTab("play");
-              }}
-            />
-          </>
-        ) : tab === "play" ? (
-          <>
-            <Text style={styles.title}>
-              {t(
-                "A little play.\nA big smile.",
-                "थोड़ा खेलें।\nखूब मुस्कुराएँ।",
-              )}
+    <SafeAreaView
+      edges={["top", "left", "right", "bottom"]}
+      style={styles.root}
+    >
+      <StatusBar style="dark" />
+      {round ? (
+        <GameScreen
+          key={`${round.game}-${round.index}-${round.profileId}`}
+          game={round.game}
+          index={round.index}
+          variant={round.variant}
+          hi={hi}
+          onFinish={finish}
+          onExit={() => {
+            setRound(null);
+            setBattle(null);
+          }}
+        />
+      ) : result ? (
+        <View
+          style={{ flex: 1, padding: 24, justifyContent: "center", gap: 20 }}
+        >
+          <Animated.View
+            style={[
+              styles.card,
+              { alignItems: "center", transform: [{ scale }] },
+            ]}
+          >
+            <Text style={{ color: C.gold, fontSize: 52 }}>
+              ★ {result.assisted ? "☆" : "★"}
             </Text>
-            <Txt muted>
-              {t(
-                `Hey ${current.name}. Your next challenge is waiting.`,
-                `${current.name}, अगली चुनौती आपका इंतजार कर रही है।`,
-              )}
-            </Txt>
-            <View
-              style={[
-                styles.card,
-                { backgroundColor: "#173D43", borderColor: "#28635D" },
-              ]}
-            >
-              <Pill text={t("NO LOGIN · NO ADS", "न LOGIN · न ADS")} />
-              <Text style={[styles.h2, { fontSize: 27 }]}>
-                {t("Your brain. Your pace.", "आपका खेल। आपकी गति।")}
-              </Text>
-              <Txt>
-                {t(
-                  "Four pocket-sized puzzles. Play alone or pass the phone around.",
-                  "चार छोटे मजेदार puzzles। अकेले खेलें या परिवार के साथ।",
-                )}
-              </Txt>
-              <Button
-                label={t("Family Battle →", "Family Battle →")}
-                onPress={() => select("family")}
-              />
-            </View>
-            <Text style={styles.h2}>
-              {t("Pick your challenge", "अपनी चुनौती चुनें")}
+            <Text style={styles.title}>{t("Puzzle cleared", "पज़ल पूरा")}</Text>
+            <Text style={styles.text}>
+              {result.name} · {names[result.game as ActiveGame]}
             </Text>
-            {selector}
-            <Button label={t("Let’s play →", "खेलें →")} onPress={startSolo} />
-            <View style={styles.row}>
-              <View style={styles.stat}>
-                <Text style={styles.statValue}>{state.attempts.length}</Text>
-                <Txt muted>{t("solves on device", "फोन के solves")}</Txt>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statValue}>40</Text>
-                <Txt muted>{t("starter levels", "शुरुआती levels")}</Txt>
-              </View>
-            </View>
-          </>
-        ) : tab === "family" ? (
-          <>
-            <Text style={styles.title}>
-              {t("One phone.\nEveryone plays.", "एक फोन।\nसबका मुकाबला।")}
+            <Text style={{ fontSize: 42, fontWeight: "900", color: C.ink }}>
+              {Math.round(points(result))}
             </Text>
-            <Txt muted>
-              {t(
-                "2–4 players, fresh puzzles, one happy family.",
-                "2–4 खिलाड़ी, नए puzzles और मजेदार मुकाबला।",
-              )}
-            </Txt>
+            <Text style={styles.subtitle}>
+              {formatTime(result.elapsedMs)} · {result.moves}{" "}
+              {t("moves", "चालें")}
+              {result.assisted ? " · Hint" : ""}
+            </Text>
+          </Animated.View>
+          {battle && (
             <View style={styles.card}>
-              {players.map((name, i) => (
-                <View key={i} style={styles.row}>
-                  <Text style={{ color: C.gold, fontWeight: "800" }}>
-                    {i + 1}
+              {[...battle.results].sort(compareAttempts).map((a, i) => (
+                <View key={a.id} style={styles.between}>
+                  <Text style={styles.text}>
+                    {i === 0 ? "♛" : "②"} {a.name}
                   </Text>
-                  <TextInput
-                    accessibilityLabel={`Player ${i + 1} name`}
-                    value={name}
-                    maxLength={24}
-                    onChangeText={(text) =>
-                      setPlayers((p) => p.map((v, k) => (k === i ? text : v)))
-                    }
-                    style={[styles.input, { flex: 1 }]}
-                    placeholder={t("Player name", "खिलाड़ी का नाम")}
-                    placeholderTextColor={C.muted}
-                  />
+                  <Text style={styles.text}>
+                    {formatTime(a.elapsedMs)}
+                    {a.assisted ? " ✦" : ""}
+                  </Text>
                 </View>
               ))}
-              <View style={styles.row}>
-                <View style={{ flex: 1 }}>
-                  <Button
-                    label={t("+ Add player", "+ खिलाड़ी जोड़ें")}
-                    secondary
-                    disabled={players.length >= 4}
-                    onPress={() =>
-                      setPlayers([...players, `Player ${players.length + 1}`])
-                    }
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Button
-                    label={t("Remove last", "अंतिम हटाएँ")}
-                    secondary
-                    disabled={players.length <= 2}
-                    onPress={() => setPlayers(players.slice(0, -1))}
-                  />
-                </View>
-              </View>
-            </View>
-            {selector}
-            <Button
-              label={t("Start Family Battle →", "मुकाबला शुरू →")}
-              onPress={startFamily}
-            />
-            <Txt muted>
-              {t(
-                "This is same-device play. Online friends and public rankings arrive in later phases.",
-                "यह एक phone का मुकाबला है। Online friends और public ranking अगले phases में आएँगे।",
-              )}
-            </Txt>
-          </>
-        ) : tab === "scores" ? (
-          <>
-            <Text style={styles.title}>
-              {t("Small wins.\nWorth keeping.", "आपकी जीत।\nआपका रिकॉर्ड।")}
-            </Text>
-            <Pill text={t("THIS DEVICE ONLY", "केवल इस फोन पर")} />
-            <Txt muted>
-              {t(
-                "Personal records and family results. Online ranking is not connected yet.",
-                "अपने और परिवार के results। Online ranking अभी नहीं जुड़ी है।",
-              )}
-            </Txt>
-            {state.attempts.length === 0 ? (
-              <View style={styles.card}>
-                <Text style={styles.h2}>
-                  {t("Your first win goes here.", "पहली जीत यहाँ दिखेगी।")}
-                </Text>
-                <Button
-                  label={t("Play a puzzle", "Puzzle खेलें")}
-                  onPress={() => select("play")}
-                />
-              </View>
-            ) : (
-              games.map((g) => {
-                const records = state.attempts.filter(
-                  (a) => a.game === g && !a.sessionId,
-                );
-                const best = new Map<string, Attempt>();
-                records.forEach((a) => {
-                  const key = `${a.profileId}-${a.level}-${a.assisted}`;
-                  const prior = best.get(key);
-                  if (!prior || compareAttempts(a, prior) < 0) best.set(key, a);
-                });
-                return (
-                  <View key={g} style={styles.card}>
-                    <Text style={[styles.h2, { color: accents[g] }]}>
-                      {names[hi ? "hi" : "en"][g]}
-                    </Text>
-                    {[...best.values()]
-                      .sort(
-                        (a, b) => a.level - b.level || compareAttempts(a, b),
-                      )
-                      .slice(0, 10)
-                      .map((a) => (
-                        <View key={a.id} style={styles.between}>
-                          <View>
-                            <Txt>
-                              {a.name} · L{a.level + 1}
-                            </Txt>
-                            <Txt muted>
-                              {a.assisted
-                                ? t("With hint", "Hint के साथ")
-                                : t("Clean solve", "बिना hint")}
-                            </Txt>
-                          </View>
-                          <Txt>{formatTime(a.elapsedMs)}</Txt>
-                        </View>
-                      ))}
-                    {records.length === 0 && (
-                      <Txt muted>
-                        {t("No solo records yet.", "अभी solo record नहीं है।")}
-                      </Txt>
-                    )}
-                  </View>
-                );
-              })
-            )}
-            {state.attempts.some((a) => a.sessionId) && (
-              <View style={styles.card}>
-                <Text style={styles.h2}>
-                  {t("Recent family rounds", "पिछले family rounds")}
-                </Text>
-                {state.attempts
-                  .filter((a) => a.sessionId)
-                  .slice(0, 12)
-                  .map((a) => (
-                    <View style={styles.between} key={a.id}>
-                      <Txt>
-                        {a.name} · {names[hi ? "hi" : "en"][a.game]}
-                        {a.assisted ? " ✦" : ""}
-                      </Txt>
-                      <Txt>{formatTime(a.elapsedMs)}</Txt>
-                    </View>
-                  ))}
-              </View>
-            )}
-          </>
-        ) : (
-          <>
-            <Text style={styles.title}>
-              {t("Make it yours.", "अपना अंदाज।")}
-            </Text>
-            <View style={styles.card}>
-              <Text style={styles.h2}>
-                {t("Local players", "इस फोन के खिलाड़ी")}
+              <Text style={styles.subtitle}>
+                {battle.results.length === battle.players.length
+                  ? t("Final standings", "अंतिम परिणाम")
+                  : t("Same puzzle · Pass the phone", "एक पज़ल · फोन पास करें")}
               </Text>
-              {state.profiles.map((p) => (
-                <Pressable
-                  key={p.id}
-                  accessibilityRole="button"
-                  onPress={() =>
-                    update({
-                      ...state,
-                      settings: { ...state.settings, activeProfileId: p.id },
-                    })
-                  }
-                  style={[
-                    styles.chip,
-                    {
-                      borderWidth: 1,
-                      borderColor: current.id === p.id ? C.teal : C.line,
-                    },
-                  ]}
+            </View>
+          )}
+          {battle && battle.turn + 1 < battle.players.length ? (
+            <Button
+              label={`${t("Next", "अगला")}: ${battle.players[battle.turn + 1]}`}
+              onPress={nextTurn}
+            />
+          ) : !battle && result.level + 1 < PUZZLES ? (
+            <Button
+              label={t("Next puzzle →", "अगला पज़ल →")}
+              onPress={() => start(result.level + 1)}
+            />
+          ) : null}
+          <Button
+            label={t("Share score", "स्कोर शेयर")}
+            secondary
+            onPress={share}
+          />
+          <Button
+            label={t("Journey", "यात्रा")}
+            secondary
+            onPress={() => {
+              setResult(null);
+              setBattle(null);
+            }}
+          />
+        </View>
+      ) : (
+        <>
+          <View
+            style={{
+              paddingHorizontal: 20,
+              paddingTop: 12,
+              paddingBottom: 14,
+              gap: 16,
+            }}
+          >
+            <View style={styles.between}>
+              <View>
+                <Text style={styles.label}>DIMAG KA DANGAL</Text>
+                <Text
+                  style={{
+                    color: C.ink,
+                    fontSize: 23,
+                    fontWeight: "900",
+                    marginTop: 6,
+                  }}
                 >
-                  <Txt>
-                    {current.id === p.id ? "● " : "○ "}
-                    {p.name}
-                  </Txt>
+                  {t("Your journey", "आपकी यात्रा")}
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Settings"
+                onPress={() => setPanel("settings")}
+                style={styles.chip}
+              >
+                <Text style={{ fontSize: 24, color: C.ink }}>⚙</Text>
+              </Pressable>
+            </View>
+            <View style={styles.row}>
+              {(["zip", "maze"] as ActiveGame[]).map((g) => (
+                <Pressable
+                  key={g}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: game === g }}
+                  onPress={() => {
+                    setGame(g);
+                    tap();
+                  }}
+                  style={{
+                    flex: 1,
+                    borderRadius: 18,
+                    padding: 14,
+                    backgroundColor: game === g ? C.teal : C.panel2,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: game === g ? C.bg : C.ink,
+                      fontWeight: "900",
+                      textAlign: "center",
+                    }}
+                  >
+                    {g === "zip" ? "① → ②" : "▥"} {names[g]}
+                  </Text>
                 </Pressable>
               ))}
-              <TextInput
-                accessibilityLabel="New profile name"
-                style={styles.input}
-                placeholder={t("New player name", "नया नाम")}
-                placeholderTextColor={C.muted}
-                maxLength={24}
-                value={profileName}
-                onChangeText={setProfileName}
-              />
-              <Button
-                label={t("Add profile", "Profile जोड़ें")}
-                disabled={!profileName.trim()}
-                onPress={() => {
-                  if (
-                    state.profiles.some(
-                      (p) =>
-                        p.name.toLowerCase() ===
-                        profileName.trim().toLowerCase(),
-                    )
-                  ) {
-                    setError(
-                      t("That name already exists.", "यह नाम पहले से है।"),
-                    );
-                    return;
-                  }
-                  const p = {
-                    id: uid(),
-                    name: profileName.trim(),
-                    avatar: state.profiles.length % 4,
-                  };
-                  update({
-                    ...state,
-                    profiles: [...state.profiles, p],
-                    settings: { ...state.settings, activeProfileId: p.id },
-                  });
-                  setProfileName("");
-                }}
-              />
             </View>
-            <View style={styles.card}>
-              <Text style={styles.h2}>{t("Preferences", "सेटिंग्स")}</Text>
-              <Button
-                secondary
-                label={
-                  hi
-                    ? "Language: हिन्दी → English"
-                    : "Language: English → हिन्दी"
-                }
-                onPress={() =>
-                  update({
-                    ...state,
-                    settings: { ...state.settings, language: hi ? "en" : "hi" },
-                  })
-                }
-              />
-              <Button
-                secondary
-                label={`${t("Haptics", "वाइब्रेशन")}: ${state.settings.haptics ? "ON" : "OFF"}`}
-                onPress={() =>
-                  update({
-                    ...state,
-                    settings: {
-                      ...state.settings,
-                      haptics: !state.settings.haptics,
-                    },
-                  })
-                }
-              />
-              <Button
-                secondary
-                label={`${t("Reduced motion", "कम motion")}: ${state.settings.reducedMotion ? "ON" : "OFF"}`}
-                onPress={() =>
-                  update({
-                    ...state,
-                    settings: {
-                      ...state.settings,
-                      reducedMotion: !state.settings.reducedMotion,
-                    },
-                  })
-                }
-              />
-            </View>
-            <View style={styles.card}>
-              <Text style={styles.h2}>
-                {t("Help shape the game", "अपनी राय दें")}
+            <View style={styles.between}>
+              <Text style={styles.text}>★ {total}</Text>
+              <Text style={styles.text}>
+                ♨ {streak(state.attempts, current.id)}
               </Text>
-              <Txt muted>
-                {t(
-                  "Feedback stays on this device until you share it.",
-                  "जब तक share न करें, राय इसी phone पर रहेगी।",
-                )}
-              </Txt>
-              <View style={styles.row}>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <Pressable
-                    key={n}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Rate ${n} out of 5`}
-                    onPress={() => setRating(n)}
-                    style={styles.chip}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 22,
-                        color: n <= rating ? C.gold : C.muted,
-                      }}
-                    >
-                      ★
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              <TextInput
-                accessibilityLabel="Feedback"
-                multiline
-                value={feedback}
-                onChangeText={(v) => {
-                  setFeedback(v);
-                  setSaved(false);
-                }}
-                placeholder={t(
-                  "What felt fun? What was confusing?",
-                  "क्या मजेदार था? कहाँ कठिनाई हुई?",
-                )}
-                placeholderTextColor={C.muted}
-                style={[styles.input, { minHeight: 100 }]}
-                maxLength={1000}
-              />
-              <Button
-                label={
-                  saved
-                    ? t("Saved ✓", "Save हुआ ✓")
-                    : t("Save feedback", "राय save करें")
-                }
-                disabled={!feedback.trim() || saved}
-                onPress={() => {
-                  update({
-                    ...state,
-                    feedback: [
-                      ...state.feedback,
-                      {
-                        id: uid(),
-                        rating,
-                        text: feedback.trim(),
-                        createdAt: new Date().toISOString(),
-                      },
-                    ],
-                  });
-                  setSaved(true);
-                }}
-              />
-              <Button
-                secondary
-                label={t(
-                  "Export feedback & results",
-                  "राय और results शेयर करें",
-                )}
-                onPress={() =>
-                  share(
-                    JSON.stringify(
-                      {
-                        app: "Dimag Ka Dangal",
-                        version: "0.2.0",
-                        feedback: state.feedback,
-                        attempts: state.attempts,
-                      },
-                      null,
-                      2,
-                    ),
-                  )
-                }
-              />
+              <Text style={styles.subtitle}>
+                {completed.size}/{PUZZLES} ✓
+              </Text>
             </View>
-            <Txt muted>
-              {t(
-                "Offline alpha · no ads · no account required. Removing the app may remove local records.",
-                "Offline alpha · न ads · न account जरूरी। App हटाने पर local records हट सकते हैं।",
-              )}
-            </Txt>
-          </>
-        )}
-      </ScrollView>
-      {!round && !result && (
-        <View style={styles.nav}>
-          {(["play", "family", "scores", "profile"] as Tab[]).map((item, i) => (
-            <Pressable
-              key={item}
-              accessibilityRole="tab"
-              accessibilityLabel={
-                (hi
-                  ? ["खेलें", "फैमिली", "स्कोर", "प्रोफाइल"]
-                  : ["Play", "Family", "Scores", "You"])[i]
-              }
-              accessibilityState={{ selected: tab === item }}
-              onPress={() => select(item)}
+          </View>
+          <ScrollView
+            bounces={false}
+            overScrollMode="never"
+            contentContainerStyle={{ paddingBottom: 20 }}
+          >
+            <View
               style={{
-                alignItems: "center",
-                gap: 5,
-                minWidth: 58,
-                minHeight: 48,
+                height: PUZZLES * 100 + 30,
+                alignSelf: "center",
+                width: "100%",
+                maxWidth: 420,
               }}
             >
-              <Text
-                style={{ fontSize: 23, color: tab === item ? C.teal : C.muted }}
-              >
-                {["◈", "♧", "▥", "◎"][i]}
-              </Text>
-              <Text style={[styles.navText, tab === item && { color: C.teal }]}>
-                {
-                  (hi
-                    ? ["खेलें", "फैमिली", "स्कोर", "प्रोफाइल"]
-                    : ["Play", "Family", "Scores", "You"])[i]
-                }
-              </Text>
-            </Pressable>
-          ))}
+              <ParkEdge />
+              {Array.from({ length: PUZZLES }, (_, i) => {
+                const x = [0, 65, 85, 45, -35, -80, -65][i % 7],
+                  previous = [0, 65, 85, 45, -35, -80, -65][(i - 1) % 7] || 0,
+                  locked = i > next,
+                  solved = completed.has(i);
+                return (
+                  <React.Fragment key={i}>
+                    {i > 0 && (
+                      <View
+                        style={{
+                          position: "absolute",
+                          top: i * 100 - 38,
+                          left: "50%",
+                          marginLeft: (x + previous) / 2 - 3,
+                          width: 6,
+                          height: 70,
+                          backgroundColor: solved ? C.teal : C.line,
+                          transform: [
+                            {
+                              rotate: `${(-Math.atan2(x - previous, 100) * 180) / Math.PI}deg`,
+                            },
+                          ],
+                        }}
+                      />
+                    )}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Puzzle ${i + 1}${locked ? ", locked" : solved ? ", completed" : ", play"}`}
+                      accessibilityState={{ disabled: locked }}
+                      disabled={locked}
+                      onPress={() => start(i)}
+                      style={{
+                        position: "absolute",
+                        top: i * 100 + 10,
+                        left: "50%",
+                        marginLeft: x - 33,
+                        width: 66,
+                        height: 66,
+                        borderRadius: 26,
+                        backgroundColor: locked
+                          ? C.panel2
+                          : solved
+                            ? "#2A655F"
+                            : C.teal,
+                        borderWidth: i === next ? 4 : 2,
+                        borderColor:
+                          i === next ? C.gold : locked ? C.line : "#D1E9AD",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: locked ? undefined : "0 6px 0 #648352",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: locked ? C.muted : solved ? C.gold : C.bg,
+                          fontSize: 23,
+                          fontWeight: "900",
+                        }}
+                      >
+                        {locked ? "·" : solved ? "★" : i + 1}
+                      </Text>
+                    </Pressable>
+                    {i % 6 === 0 && (
+                      <Text
+                        style={{
+                          position: "absolute",
+                          top: i * 100 + 84,
+                          alignSelf: "center",
+                          color: C.muted,
+                          fontSize: 10,
+                          letterSpacing: 2,
+                        }}
+                      >
+                        {t("CHAPTER", "अध्याय")} {Math.floor(i / 6) + 1}
+                      </Text>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </View>
+          </ScrollView>
+          <View
+            style={{
+              paddingHorizontal: 20,
+              paddingVertical: 10,
+              borderTopWidth: 1,
+              borderColor: C.line,
+              backgroundColor: C.panel,
+              gap: 8,
+            }}
+          >
+            <Button
+              label={`${t("Play", "खेलें")} · ${t("Puzzle", "पज़ल")} ${next + 1} →`}
+              onPress={() => start(next)}
+            />
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <Button
+                  label={t("⚔ Battle", "⚔ बैटल")}
+                  secondary
+                  onPress={() => setPanel("battle")}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  label={t("↗ Invite", "↗ बुलाएँ")}
+                  secondary
+                  onPress={share}
+                />
+              </View>
+            </View>
+          </View>
+        </>
+      )}
+      <Modal
+        visible={panel !== null}
+        transparent
+        animationType={settings.reducedMotion ? "none" : "fade"}
+        onRequestClose={() => setPanel(null)}
+      >
+        <SafeAreaView
+          style={{
+            flex: 1,
+            backgroundColor: "#000A",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+          >
+            <View style={styles.card}>
+              <View style={styles.between}>
+                <Text style={styles.h2}>
+                  {panel === "settings"
+                    ? t("Settings", "सेटिंग्स")
+                    : t("Local battle", "लोकल बैटल")}
+                </Text>
+                <Button label="×" secondary onPress={() => setPanel(null)} />
+              </View>
+              {panel === "settings" ? (
+                <>
+                  <TextInput
+                    accessibilityLabel="Player name"
+                    placeholder="Player name"
+                    placeholderTextColor={C.muted}
+                    value={current.name}
+                    maxLength={24}
+                    onChangeText={(name) =>
+                      update({
+                        ...state,
+                        profiles: state.profiles.map((p) =>
+                          p.id === current.id ? { ...p, name } : p,
+                        ),
+                      })
+                    }
+                    style={styles.input}
+                  />
+                  {[
+                    ["Haptics", "haptics"],
+                    ["Reduce motion", "reducedMotion"],
+                  ].map(([label, key]) => (
+                    <View key={key} style={styles.between}>
+                      <Text style={styles.text}>{label}</Text>
+                      <Switch
+                        accessibilityLabel={label}
+                        value={settings[key as "haptics" | "reducedMotion"]}
+                        onValueChange={(v) =>
+                          update({
+                            ...state,
+                            settings: { ...settings, [key]: v },
+                          })
+                        }
+                        trackColor={{ true: C.teal }}
+                      />
+                    </View>
+                  ))}
+                  <Button
+                    label={hi ? "Language · English" : "भाषा · हिन्दी"}
+                    secondary
+                    onPress={() =>
+                      update({
+                        ...state,
+                        settings: { ...settings, language: hi ? "en" : "hi" },
+                      })
+                    }
+                  />
+                  <Button
+                    label={t("Share for review", "रिव्यू के लिए शेयर")}
+                    secondary
+                    onPress={share}
+                  />
+                  <Text style={styles.subtitle}>
+                    v0.3.0 ·{" "}
+                    {t(
+                      "Progress saved on this phone",
+                      "प्रगति इस फोन पर सेव है",
+                    )}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.subtitle}>
+                    {t(
+                      "2–4 players · one phone · same puzzle",
+                      "2–4 खिलाड़ी · एक फोन · एक पज़ल",
+                    )}
+                  </Text>
+                  {players.map((name, i) => (
+                    <TextInput
+                      key={i}
+                      accessibilityLabel={`Battle player ${i + 1}`}
+                      style={styles.input}
+                      value={name}
+                      maxLength={24}
+                      onChangeText={(v) =>
+                        setPlayers(players.map((p, j) => (i === j ? v : p)))
+                      }
+                    />
+                  ))}
+                  <View style={styles.row}>
+                    <Button
+                      label="+"
+                      secondary
+                      disabled={players.length === 4}
+                      onPress={() =>
+                        setPlayers([...players, `Player ${players.length + 1}`])
+                      }
+                    />
+                    <Button
+                      label="−"
+                      secondary
+                      disabled={players.length === 2}
+                      onPress={() => setPlayers(players.slice(0, -1))}
+                    />
+                  </View>
+                  <Button
+                    label={t("Start battle", "बैटल शुरू")}
+                    onPress={startBattle}
+                  />
+                  <Text style={styles.subtitle}>
+                    {t(
+                      "Online friends are not connected yet.",
+                      "ऑनलाइन फ्रेंड्स अभी जुड़े नहीं हैं।",
+                    )}
+                  </Text>
+                </>
+              )}
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+      {!!error && (
+        <View
+          style={{
+            position: "absolute",
+            top: 60,
+            left: 20,
+            right: 20,
+            backgroundColor: C.panel2,
+            padding: 16,
+            borderRadius: 16,
+          }}
+        >
+          <Text style={styles.text}>{error}</Text>
+          <Button label="OK" onPress={() => setError("")} />
         </View>
       )}
     </SafeAreaView>
