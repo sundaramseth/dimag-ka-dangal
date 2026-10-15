@@ -1,11 +1,16 @@
 # Dimag Ka Dangal — implementation roadmap
 
+## Current scope revision — v0.3.0
+The latest user direction supersedes the original four-game UI: expose only **Number Trail** and **Maze Runner**. Use a park/garden theme, compact labels, stationary gameplay, a scrollable winding journey map, sequential puzzle unlocking, score/streak and restrained completion/unlock animation. Bottom controls must respect Android system navigation. No promotional quotes. Thirty puzzles per game; preserve existing local history. Same-phone battles now use the identical puzzle for all participants. Native share sheet supports review invitations. The v0.3.0 report is a product revision report, **not** a claim that the online Phase 3 below is complete. Next priority is phone acceptance of drag and safe areas; authenticated social features follow after that acceptance.
+
+The original phases below remain historical/planned context; removed games are archived engines rather than active product choices.
+
 ## Product brief / master implementation prompt
 Build an Android-first, ad-free social puzzle app for Sundaram Seth. Use React Native (React), Expo, TypeScript, offline SQLite, and later a Node.js TypeScript API with Supabase Auth/Postgres. Reserve Pusher for authenticated live-match transport, not storage or authority. Do not provision paid services. Ship phases as working, verified increments and document limitations honestly.
 
 Players should understand a game in seconds. Use original visual designs and level content, bilingual Hindi/English copy, large touch targets, shape-coded colours, optional haptics, reduced motion and clear offline states. Never claim IQ improvement. Never invent users, online status or public leaderboard scores.
 
-## Phase 1 — offline playable alpha (current implementation)
+## Phase 1 — original offline playable alpha (historical)
 - Expo Android app; no account, server, ads or credentials required.
 - Three original puzzle implementations: rotating path tiles (Rang Raasta), target-sum grid (Jod Jamao), and sequence memory (Yaadon Ki Baazi).
 - Ten deterministic levels per game; bounded difficulty progression; all levels solvable.
@@ -32,7 +37,7 @@ Privacy/data safety, age-audience decision and applicable Families requirements,
 Track consent-appropriate retention, accepted invites, completed matches, crashes and backend usage. Add public matchmaking when player supply exists. Ads remain absent until a separately agreed future change; no ads during timed play. Optional contact discovery requires verified phones, explicit permission/discoverability, abuse protection and separately estimated OTP cost.
 
 ## Ranking specification
-Compare identical game/version/difficulty. Correct finish required. Clean and assisted boards separate. For speed board: elapsed time ascending, moves tie-breaker. Family rotation uses fresh equivalent-difficulty seeds to reduce observing advantage; it is casual, not cheat-proof. Daily online boards: one ranked first attempt, server-validated; practice unranked. Weekly league points later derived only from eligible rounds, not unlimited grinding.
+Compare identical game/version/difficulty. Correct finish required. Clean and assisted boards separate. For speed board: elapsed time ascending, moves tie-breaker. Current local battle uses the same puzzle seed for every turn for directly comparable scores; pass-and-play is casual and observing advantage remains. Daily online boards: one ranked first attempt, server-validated; practice unranked. Weekly league points later derived only from eligible rounds, not unlimited grinding.
 
 ## Architecture
 apps/mobile — Expo TypeScript UI and SQLite adapters.
