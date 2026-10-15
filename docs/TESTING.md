@@ -23,3 +23,6 @@ Ask 10–15 people to try with minimal instructions. Record time-to-first-solve,
 
 ## Number Trail update
 Eight engine tests now include 1,000 Number Trail variants. Try starting on a blank/wrong numbered cell, a diagonal, a wall, a skipped checkpoint and finishing early. Drag in each direction, retract by one cell, undo and restart. Confirm all 40 levels are selectable and Number Trail works in local family rounds. A valid alternate full route must be accepted, not only the stored reference solution. Hints realign to a known solution and mark the score assisted.
+
+## v0.3.0 regression
+Only Number Trail / Maze Runner. Clear puzzle 1 to unlock 2, restart and confirm. Verify locked puzzles cannot open and legacy history remains. On a phone with three-button navigation confirm the dock is above system buttons. Draw both slow and fast lines, turn corners, retract, and cross a wall (rejected). Battle: identical puzzle for 2–4 distinct names, all turns, standings; no solo unlock. Reduced motion disables result spring. Phone background pauses active timer. Share must open a sheet, not send automatically.

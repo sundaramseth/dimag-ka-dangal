@@ -11,3 +11,6 @@ Android SDK 36, build tools, NDK 27.1 and Gradle 9.3.1 prepared for a standalone
 
 ## Physical-device acceptance still required
 Install APK, enable airplane mode, run all games and Family Battle; restart to confirm SQLite records. Check tap/drag, wall interaction, TalkBack, and smallest/large-font phone layouts. User feedback and accessibility polishing are ongoing, so the entire Phase 2 is not claimed complete.
+
+### Completed native build record
+The v0.2.0 standalone APK subsequently built successfully in GitHub Actions run 38640177024. CI signature verification passed; downloaded APK SHA256 matched `7fcc462f7b52f3490c724bcbf39dc56b712b8ad5f20a8990a55d216f1af1c3fa` (57,696,500 bytes). Bundled JS and both ARM ABIs were confirmed. User testing then reported system-navigation overlap and intermittent dragging; v0.3.0 addresses those reports and requires renewed phone verification.
