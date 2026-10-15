@@ -7,9 +7,9 @@ import {
   zipHint,
   adjacent,
 } from "./zip";
-test("all 10 Number Trail levels and 100 family variants have valid full paths", () => {
+test("all 30 Number Trail puzzles and 100 family variants have valid full paths", () => {
   const shapes = new Set<string>();
-  for (let i = 0; i < 10; i++)
+  for (let i = 0; i < 30; i++)
     for (let v = 0; v < 100; v++) {
       const l = makeZipLevel(i, v);
       assert.equal(new Set(l.solution).size, l.size * l.size);
@@ -43,7 +43,7 @@ test("reject wrong start, repeat, diagonals, out-of-order numbers, walls, early 
   assert(zipSolved(base, [0, 1, 3, 2]));
 });
 test("every solution prefix is legal and hints repair divergent routes without invalid jumps", () => {
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 30; i++) {
     const l = makeZipLevel(i);
     for (let k = 0; k < l.solution.length; k++) {
       const prefix = l.solution.slice(0, k);
