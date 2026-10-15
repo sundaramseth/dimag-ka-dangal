@@ -3,7 +3,8 @@ import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
-import { makeLevel, rotate } from "../src/engine";
+import { makeMaze } from "../src/engine/maze";
+import { makeLevel } from "../src/engine";
 async function main() {
   const root = path.resolve("dist");
   const server = createServer((req, res) => {
@@ -44,160 +45,102 @@ async function main() {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto("http://127.0.0.1:8082");
-    await page.getByText("Pick your challenge").waitFor();
-    await page.getByRole("button", { name: /Number Trail/ }).click();
-    await page.getByRole("button", { name: "Let’s play →" }).click();
-    await page.getByRole("button", { name: "Start puzzle" }).click();
-    const zip = makeLevel("zip", 0);
-    if (zip.kind !== "zip") throw Error();
-    const label = (cell: number) =>
-      `Trail cell ${cell + 1}${zip.checkpoints[cell] ? `, number ${zip.checkpoints[cell]}` : ""}`;
-    await page
-      .getByRole("button", { name: label(zip.solution[1]), exact: true })
-      .click();
-    await page.getByText("Start at number 1.", { exact: true }).waitFor();
-    await page
-      .getByRole("button", { name: label(zip.solution[0]), exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: label(zip.solution[1]), exact: true })
-      .click();
-    await page.getByRole("button", { name: "Undo", exact: true }).click();
-    const first = await page
-      .getByRole("button", { name: label(zip.solution[0]), exact: true })
-      .boundingBox();
-    if (!first) throw Error("No trail cell");
-    await page.mouse.move(
-      first.x + first.width / 2,
-      first.y + first.height / 2,
-    );
-    await page.mouse.down();
-    for (const cell of zip.solution.slice(1, 4)) {
-      const box = await page
-        .getByRole("button", { name: label(cell), exact: true })
-        .boundingBox();
-      if (!box) throw Error();
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, {
-        steps: 8,
-      });
-    }
-    await page.mouse.up();
-    await page.getByText("4/16 cells filled", { exact: true }).waitFor();
-    for (const cell of zip.solution.slice(4))
-      await page
-        .getByRole("button", { name: label(cell), exact: true })
-        .click();
-    await page
-      .getByRole("button", { name: "Check solution", exact: true })
-      .click();
-    await page.getByText("Nicely done!").waitFor();
-    await page.getByText("CLEAN SOLVE").waitFor();
-    await page.getByRole("button", { name: "Back home" }).click();
-    await page.getByRole("button", { name: /Rang Raasta/ }).click();
-    await page.getByRole("button", { name: "Let’s play →" }).click();
-    await page.getByRole("button", { name: "Start puzzle" }).click();
-    const pathLevel = makeLevel("path", 0);
-    if (pathLevel.kind !== "path") throw Error();
-    for (let i = 0; i < pathLevel.tiles.length; i++) {
-      let mask = pathLevel.tiles[i];
-      while (mask !== pathLevel.solution[i]) {
-        await page
-          .getByRole("button", { name: `Rotate tile ${i + 1}`, exact: true })
-          .click();
-        mask = rotate(mask);
-      }
-    }
-    await page.getByRole("button", { name: "Check solution" }).click();
-    await page.getByText("Nicely done!").waitFor();
-    await page.getByText("CLEAN SOLVE").waitFor();
-    await page.getByRole("button", { name: "Back home" }).click();
-    await page.getByRole("button", { name: /Jod Jamao/ }).click();
-    await page.getByRole("button", { name: "Let’s play →" }).click();
-    await page.getByRole("button", { name: "Start puzzle" }).click();
-    const sum = makeLevel("sum", 0);
-    if (sum.kind !== "sum") throw Error();
-    for (let i = 0; i < sum.values.length; i++)
-      if (sum.solution[i])
-        await page
-          .getByRole("checkbox", {
-            name: `Number ${sum.values[i]}, row ${Math.floor(i / sum.size) + 1}, column ${(i % sum.size) + 1}`,
-          })
-          .click();
-    await page.getByRole("button", { name: "Check solution" }).click();
-    await page.getByText("Nicely done!").waitFor();
-    await page.getByRole("button", { name: "Back home" }).click();
-    await page.getByRole("button", { name: /Yaadon Ki Baazi/ }).click();
-    await page.getByRole("button", { name: "Let’s play →" }).click();
-    await page.getByRole("button", { name: "Start puzzle" }).click();
-    const memory = makeLevel("memory", 0);
-    if (memory.kind !== "memory") throw Error();
-    await page
-      .getByText(`0 / ${memory.sequence.length}`, { exact: true })
-      .waitFor();
-    for (const tile of memory.sequence)
-      await page
-        .getByRole("button", { name: `Memory tile ${tile + 1}`, exact: true })
-        .click();
-    await page.getByText("Nicely done!").waitFor();
-    await page.getByRole("button", { name: "Back home" }).click();
-    await page.getByRole("tab", { name: "You", exact: true }).click();
-    await page.getByLabel("New profile name").fill("Sundaram");
-    await page
-      .getByRole("button", { name: "Add profile", exact: true })
-      .click();
-    await page
-      .getByLabel("Feedback", { exact: true })
-      .fill("Fun alpha; test family next.");
-    await page
-      .getByRole("button", { name: "Save feedback", exact: true })
-      .click();
-    await page.getByText("Saved ✓").waitFor();
-    await page.reload();
-    await page
-      .getByText("Hey Sundaram. Your next challenge is waiting.")
-      .waitFor();
-    await page.getByRole("tab", { name: "Family", exact: true }).click();
-    await page.getByLabel("Player 1 name").fill("Sundaram");
-    await page.getByLabel("Player 2 name").fill("Madhu");
-    await page.getByRole("button", { name: /Rang Raasta/ }).click();
-    await page.getByRole("button", { name: "Start Family Battle →" }).click();
-    await page.getByRole("button", { name: "Start puzzle" }).click();
-    for (let i = 0; i < 16; i++)
-      await page.getByRole("button", { name: "Use hint", exact: true }).click();
-    await page.getByRole("button", { name: "Check solution" }).click();
-    await page.getByRole("button", { name: "Pass phone to Madhu →" }).click();
-    await page.getByRole("button", { name: "Start puzzle" }).click();
-    for (let i = 0; i < 16; i++)
-      await page.getByRole("button", { name: "Use hint", exact: true }).click();
-    await page.getByRole("button", { name: "Check solution" }).click();
-    await page.getByText("Family standings").waitFor();
+    await page.getByText("Your journey", { exact: true }).waitFor();
     assert.equal(
-      await page.getByRole("button", { name: /Pass phone/ }).count(),
+      await page
+        .getByRole("button", { name: /Rang Raasta|Jod Jamao|Yaadon/ })
+        .count(),
       0,
     );
-    await page.getByRole("button", { name: "Back home" }).click();
-    await page.getByRole("tab", { name: "You", exact: true }).click();
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Puzzle 2, locked", exact: true })
+        .isDisabled(),
+      true,
+    );
+    await page.screenshot({ path: "journey-preview.png" });
+    const solve = async (game: "zip" | "maze", index = 0) => {
+      const level = game === "zip" ? makeLevel("zip", index) : makeMaze(index);
+      if (level.kind !== "zip" && level.kind !== "maze") throw Error();
+      const cellBox = async (cell: number) => {
+        const label = `Trail cell ${cell + 1}${level.checkpoints[cell] ? `, number ${level.checkpoints[cell]}` : ""}`;
+        const box = await page
+          .getByRole("button", { name: label, exact: true })
+          .boundingBox();
+        if (!box) throw Error("No cell");
+        return box;
+      };
+      const first = await cellBox(level.solution[0]);
+      await page.mouse.move(
+        first.x + first.width / 2,
+        first.y + first.height / 2,
+      );
+      await page.mouse.down();
+      for (const cell of level.solution.slice(1)) {
+        const b = await cellBox(cell);
+        await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, {
+          steps: 1,
+        });
+      }
+      await page.mouse.up();
+      await page.getByText("Puzzle cleared", { exact: true }).waitFor();
+    };
     await page
-      .getByRole("button", { name: "Language: English → हिन्दी" })
+      .getByRole("button", { name: "Puzzle 1, play", exact: true })
       .click();
-    await page.getByText("अपना अंदाज।").waitFor();
+    await solve("zip");
+    await page.getByRole("button", { name: "Journey", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Puzzle 2, play", exact: true })
+      .waitFor();
     await page.reload();
-    await page.getByRole("tab", { name: "खेलें", exact: true }).waitFor();
-    await page.setViewportSize({ width: 320, height: 740 });
-    assert(
+    await page
+      .getByRole("button", { name: "Puzzle 2, play", exact: true })
+      .waitFor();
+    await page.getByRole("button", { name: /Maze Runner/ }).click();
+    await page
+      .getByRole("button", { name: "Puzzle 1, play", exact: true })
+      .click();
+    await page.screenshot({ path: "maze-preview.png" });
+    await solve("maze");
+    await page.getByRole("button", { name: "Journey", exact: true }).click();
+    await page.getByRole("button", { name: /Battle/ }).click();
+    await page
+      .getByRole("button", { name: "Start battle", exact: true })
+      .click();
+    for (
+      let i = 0;
+      i < 100 &&
+      !(await page.getByText("Puzzle cleared", { exact: true }).count());
+      i++
+    )
+      await page.getByRole("button", { name: "Hint ✦", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Next: Player 2", exact: true })
+      .click();
+    for (
+      let i = 0;
+      i < 100 &&
+      !(await page.getByText("Puzzle cleared", { exact: true }).count());
+      i++
+    )
+      await page.getByRole("button", { name: "Hint ✦", exact: true }).click();
+    await page.getByText("Final standings", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Journey", exact: true }).click();
+    await page.setViewportSize({ width: 320, height: 568 });
+    assert.ok(
       await page.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
+        () => document.documentElement.scrollWidth <= innerWidth,
       ),
     );
-    const stored = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("dangal-state-v1")!),
-    );
-    assert.equal(stored.attempts.length, 6);
-    assert.equal(stored.feedback.length, 1);
-    assert.equal(stored.settings.language, "hi");
+    await page.getByRole("button", { name: /Play · Puzzle/ }).click();
+    const undo = await page
+      .getByRole("button", { name: "Undo", exact: true })
+      .boundingBox();
+    assert.ok(undo && undo.y + undo.height <= 568);
     assert.equal(errors.length, 0, errors.join("\n"));
     console.log(
-      "Browser smoke passed: four clean solves including drag-based Number Trail, persisted profile/results/feedback/settings, two-player family rotation, Hindi reload, 320px layout, no page errors.",
+      "PASS: continuous drag solves both games; sequential unlock/reload; same-phone battle; 320px layout; no JS errors.",
     );
   } finally {
     await browser.close();
