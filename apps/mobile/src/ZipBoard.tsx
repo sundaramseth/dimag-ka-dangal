@@ -220,6 +220,7 @@ export function ZipBoard({
                   borderWidth: 2,
                   borderColor: "#FFFFFF",
                   zIndex: 4,
+                  transform: [{ scale: Math.min(1, (cellSize - 6) / 30) }],
                 }}
               >
                 {maze ? (

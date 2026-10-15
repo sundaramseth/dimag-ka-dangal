@@ -21,8 +21,8 @@ export const styles = StyleSheet.create({
     alignSelf: "center",
     gap: 18,
   },
-  title: { fontSize: 32, fontWeight: "800", color: C.ink, letterSpacing: -1 },
-  subtitle: { fontSize: 15, color: C.muted, lineHeight: 23 },
+  title: { fontSize: 26, fontWeight: "800", color: C.ink, letterSpacing: -1 },
+  subtitle: { fontSize: 13, color: C.muted, lineHeight: 19 },
   label: { fontSize: 11, fontWeight: "800", letterSpacing: 2, color: C.teal },
   card: {
     padding: 20,
@@ -38,8 +38,8 @@ export const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  h2: { fontSize: 20, fontWeight: "800", color: C.ink },
-  text: { fontSize: 15, color: C.ink, lineHeight: 22 },
+  h2: { fontSize: 18, fontWeight: "800", color: C.ink },
+  text: { fontSize: 13, color: C.ink, lineHeight: 19 },
   input: {
     minHeight: 50,
     borderRadius: 14,
@@ -129,9 +129,9 @@ export function Button({
     >
       <Text
         style={{
-          fontSize: 15,
+          fontSize: 13,
           fontWeight: "800",
-          color: secondary ? C.ink : C.bg,
+          color: C.ink,
         }}
       >
         {label}

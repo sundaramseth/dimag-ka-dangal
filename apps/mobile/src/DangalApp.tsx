@@ -38,6 +38,7 @@ type Battle = {
   turn: number;
   results: Attempt[];
 };
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const names = { zip: "Number Trail", maze: "Maze Runner" };
 export default function DangalApp() {
@@ -50,7 +51,8 @@ export default function DangalApp() {
     [players, setPlayers] = useState(["Player 1", "Player 2"]),
     [error, setError] = useState("");
   const writing = useRef(Promise.resolve()),
-    [scale] = useState(() => new Animated.Value(0.9));
+    [scale] = useState(() => new Animated.Value(0.9)),
+    [nodeGlow] = useState(() => new Animated.Value(1));
   useEffect(() => {
     loadState()
       .then(setState)
@@ -82,6 +84,17 @@ export default function DangalApp() {
         friction: 6,
       }).start();
   }, [result, scale, state?.settings.reducedMotion]);
+  useEffect(() => {
+    if (round || result || state?.settings.reducedMotion) return;
+    nodeGlow.setValue(0.45);
+    const animation = Animated.timing(nodeGlow, {
+      toValue: 1,
+      duration: 550,
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [round, result, game, nodeGlow, state?.settings.reducedMotion]);
   const update = (next: LocalState) => {
     setState(next);
     writing.current = writing.current
@@ -260,7 +273,7 @@ export default function DangalApp() {
               {[...battle.results].sort(compareAttempts).map((a, i) => (
                 <View key={a.id} style={styles.between}>
                   <Text style={styles.text}>
-                    {i === 0 ? "♛" : "②"} {a.name}
+                    {i === 0 ? "♛" : i + 1} {a.name}
                   </Text>
                   <Text style={styles.text}>
                     {formatTime(a.elapsedMs)}
@@ -352,7 +365,7 @@ export default function DangalApp() {
                 >
                   <Text
                     style={{
-                      color: game === g ? C.bg : C.ink,
+                      color: C.ink,
                       fontWeight: "900",
                       textAlign: "center",
                     }}
@@ -411,13 +424,14 @@ export default function DangalApp() {
                         }}
                       />
                     )}
-                    <Pressable
+                    <AnimatedPressable
                       accessibilityRole="button"
                       accessibilityLabel={`Puzzle ${i + 1}${locked ? ", locked" : solved ? ", completed" : ", play"}`}
                       accessibilityState={{ disabled: locked }}
                       disabled={locked}
                       onPress={() => start(i)}
                       style={{
+                        opacity: i === next ? nodeGlow : 1,
                         position: "absolute",
                         top: i * 100 + 10,
                         left: "50%",
@@ -440,14 +454,14 @@ export default function DangalApp() {
                     >
                       <Text
                         style={{
-                          color: locked ? C.muted : solved ? C.gold : C.bg,
+                          color: locked ? C.muted : solved ? C.gold : C.ink,
                           fontSize: 23,
                           fontWeight: "900",
                         }}
                       >
                         {locked ? "·" : solved ? "★" : i + 1}
                       </Text>
-                    </Pressable>
+                    </AnimatedPressable>
                     {i % 6 === 0 && (
                       <Text
                         style={{
