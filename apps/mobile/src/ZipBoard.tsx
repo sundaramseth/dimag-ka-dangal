@@ -1,4 +1,11 @@
-import React, { useRef } from "react";
+import React, {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   PanResponder,
   Pressable,
@@ -8,239 +15,301 @@ import {
 } from "react-native";
 import { House, Rider } from "./Scenery";
 import { ZipLevel, wallKey } from "./engine";
-
-export function ZipBoard({
+import { Theme, THEMES } from "./themes";
+type BoardLevel = Pick<ZipLevel, "size" | "walls" | "checkpoints"> & {
+  relics?: number[];
+};
+const StaticLayer = memo(function StaticLayer({
+  level,
+  cellSize,
+  theme,
+  maze,
+  onCell,
+}: {
+  level: BoardLevel;
+  cellSize: number;
+  theme: Theme;
+  maze: boolean;
+  onCell: (c: number) => void;
+}) {
+  return (
+    <View pointerEvents="box-none" style={{ position: "absolute", inset: 0 }}>
+      {Array.from({ length: level.size ** 2 }, (_, cell) => (
+        <Pressable
+          key={cell}
+          pointerEvents="none"
+          accessibilityRole="button"
+          accessibilityLabel={`Trail cell ${cell + 1}${level.checkpoints[cell] ? `, number ${level.checkpoints[cell]}` : ""}`}
+          onAccessibilityTap={() => onCell(cell)}
+          onAccessibilityAction={() => onCell(cell)}
+          accessibilityActions={[{ name: "activate" }]}
+          onPress={() => onCell(cell)}
+          style={{
+            position: "absolute",
+            left: (cell % level.size) * cellSize,
+            top: Math.floor(cell / level.size) * cellSize,
+            width: cellSize,
+            height: cellSize,
+            borderWidth: maze ? 0 : 0.5,
+            borderColor: "#BBC7AD",
+          }}
+        />
+      ))}
+      {level.walls.map(([a, b]) => {
+        const vertical = b === a + 1;
+        return (
+          <View
+            pointerEvents="none"
+            key={wallKey(a, b)}
+            style={{
+              position: "absolute",
+              left: vertical
+                ? ((a % level.size) + 1) * cellSize - 2.5
+                : (a % level.size) * cellSize,
+              top: vertical
+                ? Math.floor(a / level.size) * cellSize
+                : (Math.floor(a / level.size) + 1) * cellSize - 2.5,
+              width: vertical ? 5 : cellSize + 2,
+              height: vertical ? cellSize + 2 : 5,
+              backgroundColor: theme.wall,
+              borderRadius: 3,
+              borderTopWidth: 1,
+              borderColor: theme.accent,
+            }}
+          />
+        );
+      })}
+    </View>
+  );
+});
+export const ZipBoard = memo(function ZipBoard({
   level,
   path,
   onCell,
+  onCells,
   maxWidth = 340,
   maze = false,
+  theme = THEMES.forest,
 }: {
-  level: Pick<ZipLevel, "size" | "checkpoints" | "walls">;
+  level: BoardLevel;
   path: number[];
   onCell: (cell: number) => void;
+  onCells?: (cells: number[]) => void;
   hi: boolean;
   maxWidth?: number;
   maze?: boolean;
+  theme?: Theme;
 }) {
   const { width } = useWindowDimensions();
   const boardWidth = Math.min(width - 48, maxWidth),
     cellSize = boardWidth / level.size;
-  const callbacks = useRef({ onCell, cellSize, size: level.size });
-  React.useLayoutEffect(() => {
-    callbacks.current = { onCell, cellSize, size: level.size };
-  }, [onCell, cellSize, level.size]);
-  const lastPoint = useRef<{ x: number; y: number } | null>(null),
-    lastDrag = useRef(-1);
-  const dragTo = (x: number, y: number) => {
-    const { cellSize, size, onCell } = callbacks.current;
-    const previous = lastPoint.current;
-    const steps = previous
+  const callbacks = useRef({ onCell, onCells, cellSize, size: level.size });
+  useLayoutEffect(() => {
+    callbacks.current = { onCell, onCells, cellSize, size: level.size };
+  }, [onCell, onCells, cellSize, level.size]);
+  const geometry = useRef({ x: 0, y: 0 }),
+    lastPoint = useRef<{ x: number; y: number } | null>(null),
+    lastCell = useRef(-1),
+    pending = useRef<number[]>([]),
+    frame = useRef<number | null>(null);
+  const flush = () => {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
+    const cells = pending.current;
+    pending.current = [];
+    const cb = callbacks.current;
+    if (cb.onCells) cb.onCells(cells);
+    else cells.forEach(cb.onCell);
+  };
+  useEffect(
+    () => () => {
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+    },
+    [],
+  );
+  const sample = (x: number, y: number) => {
+    const { cellSize, size } = callbacks.current;
+    const old = lastPoint.current;
+    const steps = old
       ? Math.max(
           1,
-          Math.ceil(
-            Math.hypot(x - previous.x, y - previous.y) / (cellSize / 4),
-          ),
+          Math.ceil(Math.hypot(x - old.x, y - old.y) / (cellSize / 3)),
         )
       : 1;
     for (let i = 1; i <= steps; i++) {
-      const px = previous ? previous.x + ((x - previous.x) * i) / steps : x,
-        py = previous ? previous.y + ((y - previous.y) * i) / steps : y;
+      const px = old ? old.x + ((x - old.x) * i) / steps : x,
+        py = old ? old.y + ((y - old.y) * i) / steps : y;
       const col = Math.floor(px / cellSize),
         row = Math.floor(py / cellSize);
       if (col < 0 || row < 0 || col >= size || row >= size) continue;
+      // Require a small step inside a new cell, preventing edge jitter from undoing a move.
+      const margin = cellSize * 0.1;
+      if (
+        lastCell.current >= 0 &&
+        (px - col * cellSize < margin ||
+          px - col * cellSize > cellSize - margin ||
+          py - row * cellSize < margin ||
+          py - row * cellSize > cellSize - margin)
+      )
+        continue;
       const cell = row * size + col;
-      if (cell !== lastDrag.current) {
-        lastDrag.current = cell;
-        onCell(cell);
+      if (cell !== lastCell.current) {
+        lastCell.current = cell;
+        pending.current.push(cell);
       }
     }
     lastPoint.current = { x, y };
+    if (frame.current === null) frame.current = requestAnimationFrame(flush);
   };
-  // Event callbacks read refs only during a gesture.
-  // eslint-disable-next-line react-hooks/refs
-  const [responder] = React.useState(() =>
+  // Refs are read only by gesture callbacks, not during render.
+  const [responder] = useState(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (e) => {
-        lastDrag.current = -1;
+        lastCell.current = -1;
         lastPoint.current = null;
-        dragTo(e.nativeEvent.locationX, e.nativeEvent.locationY);
+        geometry.current = {
+          x: e.nativeEvent.pageX - e.nativeEvent.locationX,
+          y: e.nativeEvent.pageY - e.nativeEvent.locationY,
+        };
+        sample(e.nativeEvent.locationX, e.nativeEvent.locationY);
+        flush();
       },
       onPanResponderMove: (e) =>
-        dragTo(e.nativeEvent.locationX, e.nativeEvent.locationY),
-      onPanResponderRelease: () => {
-        lastDrag.current = -1;
-        lastPoint.current = null;
-      },
+        sample(
+          e.nativeEvent.pageX - geometry.current.x,
+          e.nativeEvent.pageY - geometry.current.y,
+        ),
+      onPanResponderRelease: flush,
       onPanResponderTerminate: () => {
-        lastDrag.current = -1;
+        pending.current = [];
+        if (frame.current !== null) cancelAnimationFrame(frame.current);
+        frame.current = null;
         lastPoint.current = null;
       },
       onPanResponderTerminationRequest: () => false,
       onShouldBlockNativeResponder: () => true,
     }),
   );
+  const selected = useMemo(() => new Set(path), [path]);
   const centre = (cell: number) => ({
     x: ((cell % level.size) + 0.5) * cellSize,
     y: (Math.floor(cell / level.size) + 0.5) * cellSize,
   });
-  const walls = new Set(level.walls.map(([a, b]) => wallKey(a, b)));
+  const stableTap = React.useCallback(
+    (cell: number) => callbacks.current.onCell(cell),
+    [],
+  );
   return (
-    <View style={{ gap: 12, alignItems: "center" }}>
-      <View
-        {...responder.panHandlers}
-        style={{
-          width: boardWidth,
-          height: boardWidth,
-          backgroundColor: maze ? "#EEF0CF" : "#FAF8EC",
-          borderRadius: maze ? 4 : 16,
-          overflow: "hidden",
-          borderWidth: 1,
-          borderColor: maze ? "#427442" : "#AAB497",
-        }}
-      >
-        {Array.from({ length: level.size * level.size }, (_, cell) => (
-          <Pressable
-            key={cell}
-            accessibilityRole="button"
-            accessibilityLabel={`Trail cell ${cell + 1}${level.checkpoints[cell] ? `, number ${level.checkpoints[cell]}` : ""}`}
-            accessibilityState={{ selected: path.includes(cell) }}
-            onPress={() => onCell(cell)}
-            pointerEvents="none"
-            onAccessibilityTap={() => onCell(cell)}
-            accessibilityActions={[{ name: "activate" }]}
-            onAccessibilityAction={() => onCell(cell)}
-            style={{
-              position: "absolute",
-              left: (cell % level.size) * cellSize,
-              top: Math.floor(cell / level.size) * cellSize,
-              width: cellSize,
-              height: cellSize,
-              borderWidth: maze ? 0 : 0.5,
-              borderColor: "#CFD5BE",
-              backgroundColor: path.includes(cell) ? "#D1E3B5" : "transparent",
-            }}
-          />
-        ))}
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: boardWidth,
-            height: boardWidth,
-          }}
-        >
-          {path.slice(1).map((cell, i) => {
-            const a = centre(path[i]),
-              b = centre(cell);
-            const horizontal = a.y === b.y;
-            return (
-              <View
-                key={`line-${i}`}
+    <View
+      {...responder.panHandlers}
+      style={{
+        width: boardWidth,
+        height: boardWidth,
+        backgroundColor: theme.field,
+        borderRadius: maze ? 8 : 16,
+        overflow: "hidden",
+        borderWidth: 2,
+        borderColor: theme.wall,
+      }}
+    >
+      <StaticLayer
+        level={level}
+        cellSize={cellSize}
+        theme={theme}
+        maze={maze}
+        onCell={stableTap}
+      />
+      <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
+        {path.map((cell, i) => {
+          const a = centre(cell),
+            b = i ? centre(path[i - 1]) : a,
+            horizontal = a.y === b.y;
+          return (
+            <View
+              key={cell}
+              style={{
+                position: "absolute",
+                left: Math.min(a.x, b.x) - 4,
+                top: Math.min(a.y, b.y) - 4,
+                width: horizontal ? Math.abs(a.x - b.x) + 8 : 8,
+                height: horizontal ? 8 : Math.abs(a.y - b.y) + 8,
+                borderRadius: 5,
+                backgroundColor: theme.path,
+              }}
+            />
+          );
+        })}
+        {level.relics?.map((cell) => {
+          const p = centre(cell);
+          return (
+            !selected.has(cell) && (
+              <Text
+                key={`relic-${cell}`}
                 style={{
                   position: "absolute",
-                  left: Math.min(a.x, b.x) - (horizontal ? 0 : 5),
-                  top: Math.min(a.y, b.y) - (horizontal ? 5 : 0),
-                  width: horizontal ? Math.abs(b.x - a.x) : 10,
-                  height: horizontal ? 10 : Math.abs(b.y - a.y),
-                  backgroundColor: maze ? "#E2AC5A" : "#438B61",
-                }}
-              />
-            );
-          })}
-          {path.map((cell) => {
-            const p = centre(cell);
-            return (
-              <View
-                key={`dot-${cell}`}
-                style={{
-                  position: "absolute",
-                  left: p.x - 5,
-                  top: p.y - 5,
-                  width: 10,
-                  height: 10,
-                  borderRadius: 5,
-                  backgroundColor: maze ? "#E2AC5A" : "#438B61",
-                }}
-              />
-            );
-          })}
-          {Array.from({ length: level.size * level.size }, (_, a) =>
-            [a + 1, a + level.size]
-              .filter((b) => walls.has(wallKey(a, b)))
-              .map((b) => {
-                const horizontal = b === a + 1;
-                return (
-                  <View
-                    key={`wall-${a}-${b}`}
-                    style={{
-                      position: "absolute",
-                      left: horizontal
-                        ? ((a % level.size) + 1) * cellSize - 3
-                        : (a % level.size) * cellSize,
-                      top: horizontal
-                        ? Math.floor(a / level.size) * cellSize
-                        : (Math.floor(a / level.size) + 1) * cellSize - 3,
-                      width: horizontal ? 6 : cellSize,
-                      height: horizontal ? cellSize : 6,
-                      backgroundColor: maze ? "#427442" : "#334734",
-                      borderRadius: maze ? 3 : 0,
-                      borderWidth: maze ? 1 : 0,
-                      borderColor: "#78A35C",
-                      zIndex: 3,
-                    }}
-                  />
-                );
-              }),
-          )}
-          {Object.entries(level.checkpoints).map(([key, number]) => {
-            const cell = Number(key),
-              p = centre(cell);
-            return (
-              <View
-                key={key}
-                style={{
-                  position: "absolute",
-                  left: p.x - 15,
-                  top: p.y - 15,
-                  width: 30,
-                  height: 30,
-                  borderRadius: 15,
-                  backgroundColor: maze
-                    ? "#F5EDCC"
-                    : path.at(-1) === cell
-                      ? "#438B61"
-                      : "#263F32",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderWidth: 2,
-                  borderColor: "#FFFFFF",
-                  zIndex: 4,
-                  transform: [{ scale: Math.min(1, (cellSize - 6) / 30) }],
+                  left: p.x - 7,
+                  top: p.y - 10,
+                  color: theme.path,
+                  fontSize: 16,
+                  fontWeight: "900",
                 }}
               >
-                {maze ? (
-                  number === 1 ? (
-                    <Rider />
-                  ) : (
-                    <House />
-                  )
+                ◆
+              </Text>
+            )
+          );
+        })}
+        {Object.entries(level.checkpoints).map(([key, n]) => {
+          const cell = +key;
+          if (maze && n === 1 && path.length) return null;
+          const p = centre(cell);
+          return (
+            <View
+              key={key}
+              style={{
+                position: "absolute",
+                left: p.x - 14,
+                top: p.y - 14,
+                width: 28,
+                height: 28,
+                borderRadius: 14,
+                backgroundColor: maze ? theme.tile : theme.ink,
+                alignItems: "center",
+                justifyContent: "center",
+                transform: [{ scale: Math.min(1, (cellSize - 4) / 28) }],
+              }}
+            >
+              {maze ? (
+                n === 1 ? (
+                  <Rider />
                 ) : (
-                  <Text
-                    style={{ fontSize: 16, fontWeight: "800", color: "white" }}
-                  >
-                    {number}
-                  </Text>
-                )}
-              </View>
-            );
-          })}
-        </View>
+                  <House />
+                )
+              ) : (
+                <Text
+                  style={{ color: "#FFF", fontWeight: "900", fontSize: 15 }}
+                >
+                  {n}
+                </Text>
+              )}
+            </View>
+          );
+        })}
+        {maze && path.length > 0 && (
+          <View
+            style={{
+              position: "absolute",
+              left: centre(path.at(-1)!).x - 14,
+              top: centre(path.at(-1)!).y - 14,
+              transform: [{ scale: Math.min(1, (cellSize - 3) / 28) }],
+            }}
+          >
+            <Rider />
+          </View>
+        )}
       </View>
     </View>
   );
-}
+});

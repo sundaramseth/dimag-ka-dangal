@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AppState, Text, View, useWindowDimensions } from "react-native";
 import {
   Attempt,
-  formatTime,
   makeZipLevel,
   zipHint,
   zipPrefixError,
@@ -10,6 +9,9 @@ import {
 } from "./engine";
 import { makeMaze, mazeSolved, mazeValid } from "./engine/maze";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { secondsText } from "./engine/rewards";
+import { Theme, THEMES } from "./themes";
+import { Mountain, Waterfall } from "./JourneyMap";
 import { Tree } from "./Scenery";
 import { ZipBoard } from "./ZipBoard";
 import { Button, C, styles } from "./ui";
@@ -21,7 +23,9 @@ export function GameScreen({
   hi,
   onExit,
   onFinish,
+  theme = THEMES.forest,
 }: {
+  theme?: Theme;
   game: ActiveGame;
   index: number;
   variant: number;
@@ -35,7 +39,6 @@ export function GameScreen({
     [game, index, variant],
   );
   const [path, setPath] = useState<number[]>([]),
-    [moves, setMoves] = useState(0),
     [assisted, setAssisted] = useState(false),
     [seconds, setSeconds] = useState(0),
     [message, setMessage] = useState("");
@@ -70,7 +73,7 @@ export function GameScreen({
     trail.current = next;
     setPath(next);
     moveCount.current++;
-    setMoves(moveCount.current);
+
     setMessage("");
     const solved =
       level.kind === "zip" ? zipSolved(level, next) : mazeSolved(level, next);
@@ -100,35 +103,59 @@ export function GameScreen({
   };
   return (
     <View
-      style={{ flex: 1, padding: 16, gap: 12, justifyContent: "space-between" }}
+      style={{
+        flex: 1,
+        padding: 16,
+        gap: 12,
+        justifyContent: "space-between",
+        backgroundColor: theme.ground,
+      }}
     >
       <View style={styles.between}>
         <Button label="‹" secondary onPress={onExit} />
         <Text style={styles.h2}>
           {game === "zip" ? "Number Trail" : "Maze Runner"}
         </Text>
-        <Text style={styles.text}>{formatTime(seconds)}</Text>
+        <Text style={styles.text}>{secondsText(seconds)}</Text>
       </View>
       <View style={styles.between}>
         <Text style={styles.label}>
           {hi ? "पज़ल" : "PUZZLE"} {index + 1}
         </Text>
         <Text style={styles.subtitle}>
-          {moves} {hi ? "चालें" : "moves"}
+          {level.kind === "maze"
+            ? `◆ ${level.relics.filter((c) => path.includes(c)).length}/${level.relics.length}`
+            : `${path.length}/${level.size ** 2}`}
           {assisted ? " · ✦" : ""}
         </Text>
       </View>
       <View style={{ alignItems: "center", gap: 10 }}>
         {game === "maze" && (
-          <View style={{ flexDirection: "row", gap: 30 }}>
-            <Tree small />
-            <Tree small />
-            <Tree small />
-            <Tree small />
-            <Tree small />
+          <View
+            style={{
+              flexDirection: "row",
+              gap: 30,
+              height: 42,
+              overflow: "hidden",
+              alignItems: "flex-end",
+            }}
+          >
+            {theme.scene === "mountain" ? (
+              <Mountain colour={theme.wall} />
+            ) : theme.scene === "waterfall" ? (
+              <Waterfall />
+            ) : (
+              <>
+                <Tree small />
+                <Tree small />
+                <Tree small />
+              </>
+            )}
           </View>
         )}
         <ZipBoard
+          theme={theme}
+          onCells={(cells) => cells.forEach(onCell)}
           maze={game === "maze"}
           level={level}
           path={path}
@@ -136,7 +163,7 @@ export function GameScreen({
           hi={hi}
           maxWidth={Math.max(
             180,
-            Math.min(360, height - insets.top - insets.bottom - 310),
+            Math.min(360, height - insets.top - insets.bottom - 350),
           )}
         />
         <Text style={{ color: C.muted, fontSize: 12, textAlign: "center" }}>
@@ -145,8 +172,8 @@ export function GameScreen({
               ? "1 → 2 → 3 · पूरा बोर्ड भरें"
               : "1 → 2 → 3 · Fill every cell"
             : hi
-              ? "Find the way home"
-              : "घर तक रास्ता खोजें"}
+              ? "क्रिस्टल चुनें · घर तक पहुँचें"
+              : "Collect crystals · Find the way home"}
         </Text>
         <Text
           accessibilityLiveRegion="polite"
@@ -173,7 +200,6 @@ export function GameScreen({
               setPath([]);
               setMessage("");
               moveCount.current++;
-              setMoves(moveCount.current);
             }}
           />
         </View>
