@@ -2,7 +2,7 @@
 
 An Android-first, ad-free puzzle game with **Number Trail** and **Maze Runner**. v0.4.0 adds gem rewards, delayed celebrations, original music, a bottom-to-top three-chapter journey, unlockable cosmetics and denser crystal-collection mazes. Gameplay stays fixed; progress/wallets persist locally.
 
-[Version 0.4.0 report](docs/PHASE_4_REPORT.md) · [Online activation](docs/ONLINE_SETUP.md). Friends/auth/requests client and RLS migration are implemented; live activation remains pending while `config/cloud.json` has `ready:false`. This is not a claim of deployed multiplayer or a verified public ranking.
+[Version 0.4.0 report](docs/PHASE_4_REPORT.md) · [Online activation](docs/ONLINE_SETUP.md). Friends/auth/requests are connected to the dedicated free Supabase development project; migration, public configuration, hosted database policy tests and anonymous API denial checks are complete. Two-device email/session acceptance remains pending. This is not a claim of deployed multiplayer or a verified public ranking.
 
 ## Start
 Requires Node 22.13+ (SDK 57), npm, and an Android phone/emulator for native verification.
@@ -41,7 +41,7 @@ Optional EAS preview config is supplied, but requires your Expo account and is s
 ## Implemented / deferred
 Android persistence uses expo-sqlite with parameterized writes and ordered saves. Browser preview uses localStorage. Attempts retained to preserve puzzle unlock history. Results/hints/backgrounding are labelled. Feedback remains local until explicit sharing. Profile and exported family names may contain personal data; share intentionally.
 
-No network social data yet: friends/following, requests, public boards, cloud login, realtime invitations/chat and Node backend are subsequent phases. Do not add fake users/scores to imply these work. No ads, phone OTP, AI services or paid hosting.
+Email auth and handle-based friend requests are connected to Supabase with protected RPCs. Two-device email/session testing remains pending; public boards, live matches, presence/chat, cloud wallet and Node competition backend are subsequent phases. Do not add fake users/scores to imply these work. No ads, phone OTP, AI services or paid hosting.
 
 ## Reports
 - [Phased roadmap + full implementation brief](docs/IMPLEMENTATION_PLAN.md)
