@@ -38,11 +38,14 @@ export function Music({
     });
     return () => {
       sub.remove();
-      ambient.pause();
     };
   }, [ambient, enabled]);
   useEffect(() => {
-    if (!celebration || !sound) return;
+    if (!sound) {
+      win.pause();
+      return;
+    }
+    if (!celebration) return;
     configurePlayer(win, false, 0.65);
     win
       .seekTo(0)

@@ -52,6 +52,7 @@ const StaticLayer = memo(function StaticLayer({
             height: cellSize,
             borderWidth: maze ? 0 : 0.5,
             borderColor: "#BBC7AD",
+            backgroundColor: maze && cell % 4 === 0 ? theme.tile : undefined,
           }}
         />
       ))}
@@ -64,16 +65,18 @@ const StaticLayer = memo(function StaticLayer({
             style={{
               position: "absolute",
               left: vertical
-                ? ((a % level.size) + 1) * cellSize - 2.5
+                ? ((a % level.size) + 1) * cellSize - (maze ? 4 : 2.5)
                 : (a % level.size) * cellSize,
               top: vertical
                 ? Math.floor(a / level.size) * cellSize
-                : (Math.floor(a / level.size) + 1) * cellSize - 2.5,
-              width: vertical ? 5 : cellSize + 2,
-              height: vertical ? cellSize + 2 : 5,
+                : (Math.floor(a / level.size) + 1) * cellSize -
+                  (maze ? 4 : 2.5),
+              width: vertical ? (maze ? 8 : 5) : cellSize + 2,
+              height: vertical ? cellSize + 2 : maze ? 8 : 5,
               backgroundColor: theme.wall,
               borderRadius: 3,
-              borderTopWidth: 1,
+              borderTopWidth: maze ? 2 : 1,
+              borderLeftWidth: maze ? 1 : 0,
               borderColor: theme.accent,
             }}
           />

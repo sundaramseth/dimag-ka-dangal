@@ -50,6 +50,7 @@ export function GameScreen({
     active = useRef(true);
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const compact = height - insets.top - insets.bottom < 600;
   useEffect(() => {
     tick.current = Date.now();
     const id = setInterval(() => {
@@ -105,8 +106,8 @@ export function GameScreen({
     <View
       style={{
         flex: 1,
-        padding: 16,
-        gap: 12,
+        padding: compact ? 12 : 16,
+        gap: compact ? 8 : 12,
         justifyContent: "space-between",
         backgroundColor: theme.ground,
       }}
@@ -129,27 +130,81 @@ export function GameScreen({
           {assisted ? " · ✦" : ""}
         </Text>
       </View>
-      <View style={{ alignItems: "center", gap: 10 }}>
-        {game === "maze" && (
+      <View style={{ alignItems: "center", gap: compact ? 4 : 10 }}>
+        {game === "maze" && !compact && (
           <View
+            pointerEvents="none"
             style={{
-              flexDirection: "row",
-              gap: 30,
-              height: 42,
-              overflow: "hidden",
-              alignItems: "flex-end",
+              height: 82,
+              width: 280,
+              alignItems: "center",
+              justifyContent: "flex-end",
             }}
           >
+            <View
+              style={{
+                position: "absolute",
+                bottom: 0,
+                width: 270,
+                height: 35,
+                borderTopLeftRadius: 100,
+                borderTopRightRadius: 90,
+                backgroundColor: theme.tile,
+              }}
+            />
             {theme.scene === "mountain" ? (
-              <Mountain colour={theme.wall} />
+              <View
+                style={{ flexDirection: "row", alignItems: "flex-end", gap: 4 }}
+              >
+                <View
+                  style={{ transform: [{ scale: 0.75 }], marginBottom: -10 }}
+                >
+                  <Mountain colour={theme.accent} />
+                </View>
+                <Mountain colour={theme.wall} />
+                <View
+                  style={{ transform: [{ scale: 0.65 }], marginBottom: -14 }}
+                >
+                  <Mountain colour={theme.accent} />
+                </View>
+              </View>
             ) : theme.scene === "waterfall" ? (
-              <Waterfall />
+              <View
+                style={{
+                  height: 82,
+                  width: 240,
+                  flexDirection: "row",
+                  alignItems: "flex-end",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Tree />
+                <View
+                  style={{
+                    position: "absolute",
+                    left: 90,
+                    top: -24,
+                    transform: [{ scale: 0.6 }],
+                  }}
+                >
+                  <Waterfall />
+                </View>
+                <Mountain colour={theme.wall} />
+              </View>
             ) : (
-              <>
+              <View
+                style={{
+                  flexDirection: "row",
+                  gap: 16,
+                  alignItems: "flex-end",
+                }}
+              >
                 <Tree small />
+                <Tree />
                 <Tree small />
+                <Tree />
                 <Tree small />
-              </>
+              </View>
             )}
           </View>
         )}
@@ -163,7 +218,10 @@ export function GameScreen({
           hi={hi}
           maxWidth={Math.max(
             180,
-            Math.min(360, height - insets.top - insets.bottom - 350),
+            Math.min(
+              360,
+              height - insets.top - insets.bottom - (compact ? 240 : 350),
+            ),
           )}
         />
         <Text style={{ color: C.muted, fontSize: 12, textAlign: "center" }}>

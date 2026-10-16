@@ -59,6 +59,12 @@ export default function DangalApp() {
     [players, setPlayers] = useState(["Player 1", "Player 2"]),
     [error, setError] = useState(""),
     [reward, setReward] = useState({ earned: 0, bonus: 0 });
+  useEffect(() => {
+    if (friend) {
+      const id = setTimeout(() => setPanel("friends"), 0);
+      return () => clearTimeout(id);
+    }
+  }, [friend]);
   const writing = useRef(Promise.resolve());
   useEffect(() => {
     loadState()
@@ -436,6 +442,7 @@ export default function DangalApp() {
               </View>
               {panel === "friends" ? (
                 <FriendsPanel
+                  key={friend || "manual"}
                   displayName={current.name}
                   onShare={share}
                   invitedHandle={friend}
