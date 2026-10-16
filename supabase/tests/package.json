@@ -1,0 +1,1 @@
+{"name":"dangal-db-policy-tests","private":true,"type":"module","scripts":{"test":"node friends.mjs"},"devDependencies":{"@electric-sql/pglite":"0.5.10"}}
