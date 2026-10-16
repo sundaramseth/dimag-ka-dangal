@@ -5,6 +5,9 @@ The latest user direction supersedes the original four-game UI: expose only **Nu
 
 The original phases below remain historical/planned context; removed games are archived engines rather than active product choices.
 
+## v0.4.0 feedback revision
+Prioritize celebrations, once-only gems/chapter bonuses, cosmetic unlocks, seconds-only result timing, original audio and a bottom-to-top map with ten puzzles per chapter. Maze difficulty grows through branching 8/10/12 grids and crystal collection. Maintain fixed screens and optimize long drawing sessions. Authenticated friend requests/invite distribution are implemented as a beta activation path; hosted deployment must be verified before calling the app online. See PHASE_4_REPORT.md and ONLINE_SETUP.md.
+
 ## Product brief / master implementation prompt
 Build an Android-first, ad-free social puzzle app for Sundaram Seth. Use React Native (React), Expo, TypeScript, offline SQLite, and later a Node.js TypeScript API with Supabase Auth/Postgres. Reserve Pusher for authenticated live-match transport, not storage or authority. Do not provision paid services. Ship phases as working, verified increments and document limitations honestly.
 
