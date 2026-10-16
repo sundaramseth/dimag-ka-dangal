@@ -25,7 +25,7 @@ export async function getCloud(): Promise<SupabaseClient | null> {
       try {
         r = await fetch(
           "https://raw.githubusercontent.com/sundaramseth/dimag-ka-dangal/main/config/cloud.json",
-          { signal: AbortSignal.timeout(10000), cache: "no-store" },
+          { signal: controller.signal, cache: "no-store" },
         );
       } finally {
         clearTimeout(timeout);
