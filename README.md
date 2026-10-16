@@ -2,7 +2,7 @@
 
 An Android-first, ad-free puzzle game with **Number Trail** and **Maze Runner**. v0.4.0 adds gem rewards, delayed celebrations, original music, a bottom-to-top three-chapter journey, unlockable cosmetics and denser crystal-collection mazes. Gameplay stays fixed; progress/wallets persist locally.
 
-[Version 0.4.0 report](docs/PHASE_4_REPORT.md) · [Online activation](docs/ONLINE_SETUP.md). Friends/auth/requests are connected to the dedicated free Supabase development project; migration, public configuration, hosted database policy tests and anonymous API denial checks are complete. Two-device email/session acceptance remains pending. This is not a claim of deployed multiplayer or a verified public ranking.
+[Version 0.4.0 report](docs/PHASE_4_REPORT.md) · [Online activation](docs/ONLINE_SETUP.md). Friends/auth/requests are connected to the dedicated free Supabase development project; migration, public configuration, hosted database policy tests and anonymous API denial checks are complete. Public tester signup still requires custom SMTP; two-device email/session acceptance remains pending. This is not a claim of deployed multiplayer or a verified public ranking.
 
 ## Start
 Requires Node 22.13+ (SDK 57), npm, and an Android phone/emulator for native verification.
