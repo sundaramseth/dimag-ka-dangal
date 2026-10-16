@@ -50,3 +50,5 @@ No custom SMTP provider was configured in this new project. Supabase's default S
 - Artifact ZIP SHA256: `8bb720ea09a92feb3edc05530032d56b7ed70a825cc46d29c5af28856ce92880`, matches GitHub artifact digest.
 - Signer certificate SHA256: `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`, same as v0.3.0 for update compatibility. This remains testing signing, not Play production signing.
 - Native installation, long-session performance, email delivery and secure-session restore on actual tester phones remain acceptance items.
+
+Public tester release published: https://github.com/sundaramseth/dimag-ka-dangal/releases/tag/v0.4.0 . The release asset `Dimag-Ka-Dangal.apk` exposes the same SHA256 as the verified final APK. The app share target is the latest-release APK URL. No Play Store publication was performed.
