@@ -300,6 +300,7 @@ export function FriendsPanel({
           />
           <Button
             label="Invite · Download app"
+            disabled={!myHandle || busy}
             onPress={() =>
               run(async () => {
                 await Share.share({
