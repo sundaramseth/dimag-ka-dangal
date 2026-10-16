@@ -2,7 +2,7 @@
   "expo": {
     "name": "Dimag Ka Dangal",
     "slug": "dimag-ka-dangal",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.sundaramseth.dimagkadangal",
-      "versionCode": 3
+      "versionCode": 4
     },
     "web": {
       "bundler": "metro",
@@ -24,7 +24,18 @@
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ],
+      "expo-secure-store",
+      "expo-asset"
     ],
     "scheme": "dangal",
     "splash": {
