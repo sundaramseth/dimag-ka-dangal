@@ -1,5 +1,5 @@
 import * as SQLite from "expo-sqlite";
-import { LocalState, defaultState, STATE_KEY } from "./types";
+import { LocalState, defaultState, STATE_KEY, hydrateState } from "./types";
 let database: Promise<SQLite.SQLiteDatabase> | undefined;
 async function db() {
   if (!database)
@@ -18,7 +18,9 @@ export async function loadState(): Promise<LocalState> {
     "SELECT value FROM local_state WHERE key=?",
     STATE_KEY,
   );
-  return row ? JSON.parse(row.value) : JSON.parse(JSON.stringify(defaultState));
+  return hydrateState(
+    row ? JSON.parse(row.value) : JSON.parse(JSON.stringify(defaultState)),
+  );
 }
 export async function saveState(state: LocalState) {
   await (
