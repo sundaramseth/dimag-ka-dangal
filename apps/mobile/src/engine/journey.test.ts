@@ -10,8 +10,8 @@ test("600 maze variants are deterministic, connected trees with valid exits", ()
       assert.deepEqual(m, makeMaze(i, v));
       assert.ok(mazeSolved(m, m.solution));
       assert.equal(mazeSolved(m, m.solution.slice(0, -1)), false);
-      assert.equal(mazeValid(m, [0, m.size ** 2 - 1]), false);
-      assert.equal(mazeValid(m, [0, 0]), false);
+      assert.equal(mazeValid(m, [m.start, -1]), false);
+      assert.equal(mazeValid(m, [m.start, m.start]), false);
       assert.equal(
         m.walls.length,
         2 * m.size * (m.size - 1) - (m.size ** 2 - 1),
