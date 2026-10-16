@@ -25,3 +25,6 @@ npm test
 These use isolated PGlite PostgreSQL and an auth.uid emulation. They do not create test accounts in production or prove hosted Auth/email delivery.
 
 Hosted policy test: `supabase/tests/hosted_rollback.sql` was run against the dedicated development project. It inserts synthetic UUID-only auth rows inside a transaction, tests role-scoped operations, then rolls back. It does not test actual JWT issuance or email. Never run test SQL against an unrelated project.
+
+## Public email signup prerequisite
+No custom SMTP provider was configured in this new project. Supabase's default SMTP only delivers to organization team addresses, so ordinary testers cannot yet complete email signup. Connect a user-owned SMTP service and configure sender/site/redirect settings before opening friends to general testers. Verification remains enabled; no team access was granted and no delivery limit was bypassed. [Official SMTP setup](https://supabase.com/docs/guides/auth/auth-smtp). Backend/API deployment is complete, but public email delivery and full two-device Auth acceptance remain blocked by this external setup.
