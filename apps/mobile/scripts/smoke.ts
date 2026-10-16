@@ -36,6 +36,7 @@ async function main() {
       "--disable-dev-shm-usage",
       "--single-process",
       "--disable-gpu",
+      "--autoplay-policy=no-user-gesture-required",
     ],
   });
   try {
@@ -57,6 +58,16 @@ async function main() {
         .getByRole("button", { name: "Puzzle 2, locked", exact: true })
         .isDisabled(),
       true,
+    );
+    const firstNode = await page
+      .getByRole("button", { name: "Puzzle 1, play", exact: true })
+      .boundingBox();
+    const secondNode = await page
+      .getByRole("button", { name: "Puzzle 2, locked", exact: true })
+      .boundingBox();
+    assert.ok(
+      firstNode && secondNode && secondNode.y < firstNode.y,
+      "Journey must climb upward",
     );
     await page.screenshot({ path: "journey-preview.png" });
     const solve = async (game: "zip" | "maze", index = 0) => {
@@ -83,12 +94,23 @@ async function main() {
         });
       }
       await page.mouse.up();
-      await page.getByText("Puzzle cleared", { exact: true }).waitFor();
+      await page.getByText("Puzzle cleared!", { exact: true }).waitFor();
     };
     await page
       .getByRole("button", { name: "Puzzle 1, play", exact: true })
       .click();
     await solve("zip");
+    await page.getByText("Collecting rewards…", { exact: true }).waitFor();
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Next puzzle →", exact: true })
+        .count(),
+      0,
+    );
+    await page.screenshot({ path: "celebration-preview.png" });
+    await page
+      .getByRole("button", { name: "Next puzzle →", exact: true })
+      .waitFor();
     await page.getByRole("button", { name: "Journey", exact: true }).click();
     await page
       .getByRole("button", { name: "Puzzle 2, play", exact: true })
@@ -103,6 +125,9 @@ async function main() {
       .click();
     await page.screenshot({ path: "maze-preview.png" });
     await solve("maze");
+    await page
+      .getByRole("button", { name: "Next puzzle →", exact: true })
+      .waitFor();
     await page.getByRole("button", { name: "Journey", exact: true }).click();
     await page.getByRole("button", { name: /Battle/ }).click();
     await page
@@ -111,22 +136,64 @@ async function main() {
     for (
       let i = 0;
       i < 100 &&
-      !(await page.getByText("Puzzle cleared", { exact: true }).count());
+      !(await page.getByText("Puzzle cleared!", { exact: true }).count());
       i++
     )
       await page.getByRole("button", { name: "Hint ✦", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Next: Player 2", exact: true })
+      .waitFor();
     await page
       .getByRole("button", { name: "Next: Player 2", exact: true })
       .click();
     for (
       let i = 0;
       i < 100 &&
-      !(await page.getByText("Puzzle cleared", { exact: true }).count());
+      !(await page.getByText("Puzzle cleared!", { exact: true }).count());
       i++
     )
       await page.getByRole("button", { name: "Hint ✦", exact: true }).click();
     await page.getByText("Final standings", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Journey", exact: true }).click();
+    const stored = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("dangal-state-v1")!),
+    );
+    assert.equal(stored.wallets["player-1"].gems, 24);
+    await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem("dangal-state-v1")!);
+      const base = s.attempts.find(
+        (a: any) => a.game === "zip" && !a.sessionId,
+      );
+      s.attempts = [
+        ...s.attempts,
+        ...[1, 2, 3, 4].map((level) => ({
+          ...base,
+          id: "fixture-" + level,
+          level,
+        })),
+      ];
+      s.wallets = {};
+      localStorage.setItem("dangal-state-v1", JSON.stringify(s));
+    });
+    await page.reload();
+    await page.getByRole("button", { name: "Themes", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Unlock · ◆ 60 · 5 wins", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "✓ Equipped", exact: true })
+      .waitFor();
+    await page.screenshot({ path: "themes-preview.png" });
+    await page.getByRole("button", { name: "×", exact: true }).click();
+    await page.reload();
+    const wallet = await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("dangal-state-v1")!).wallets[
+          "player-1"
+        ],
+    );
+    assert.equal(wallet.selected, "twilight");
+    assert.equal(wallet.gems, 12);
     await page.setViewportSize({ width: 320, height: 568 });
     assert.ok(
       await page.evaluate(
@@ -138,9 +205,20 @@ async function main() {
       .getByRole("button", { name: "Undo", exact: true })
       .boundingBox();
     assert.ok(undo && undo.y + undo.height <= 568);
+    await page.getByRole('button',{name:'‹',exact:true}).click();
+    await page.setViewportSize({width:390,height:844});
+    await page.evaluate(()=>{const s=JSON.parse(localStorage.getItem('dangal-state-v1')!);const base=s.attempts.find((a:any)=>a.game==='maze'&&!a.sessionId);s.attempts=[...s.attempts,...Array.from({length:20},(_,level)=>({...base,id:'chapter-fixture-'+level,level}))];s.wallets={};localStorage.setItem('dangal-state-v1',JSON.stringify(s));});
+    await page.reload();await page.getByRole('button',{name:/Maze Runner/}).click();
+    await page.getByRole('button',{name:'Puzzle 11, completed',exact:true}).click();
+    await page.screenshot({path:'mountain-preview.png'});
+    await page.getByRole('button',{name:'‹',exact:true}).click();
+    await page.getByRole('button',{name:'Puzzle 21, play',exact:true}).click();
+    await page.screenshot({path:'waterfall-preview.png'});
+    await solve('maze',20);
+    await page.getByRole('button',{name:'Next puzzle →',exact:true}).waitFor();
     assert.equal(errors.length, 0, errors.join("\n"));
     console.log(
-      "PASS: continuous drag solves both games; sequential unlock/reload; same-phone battle; 320px layout; no JS errors.",
+      "PASS: continuous drag, upward journey, delayed celebration, gems, theme purchase/reload, same-phone battle, compact layout, no JS errors.",
     );
   } finally {
     await browser.close();
