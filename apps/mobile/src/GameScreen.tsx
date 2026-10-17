@@ -66,13 +66,13 @@ export function GameScreen({
     tick.current = Date.now();
     const id = setInterval(() => {
       const now = Date.now();
-      if (active.current) elapsed.current += now - tick.current;
+      if (active.current || online) elapsed.current += now - tick.current;
       tick.current = now;
       setSeconds(elapsed.current);
     }, 1000);
     const sub = AppState.addEventListener("change", (s) => {
       const now = Date.now();
-      if (active.current) elapsed.current += now - tick.current;
+      if (active.current || online) elapsed.current += now - tick.current;
       tick.current = now;
       active.current = s === "active";
     });
@@ -80,7 +80,7 @@ export function GameScreen({
       clearInterval(id);
       sub.remove();
     };
-  }, []);
+  }, [online]);
   const apply = (next: number[], hint = false) => {
     trail.current = next;
     setPath(next);
@@ -93,7 +93,7 @@ export function GameScreen({
       done.current = true;
       onFinish({
         elapsedMs:
-          elapsed.current + (active.current ? Date.now() - tick.current : 0),
+          elapsed.current + (active.current || online ? Date.now() - tick.current : 0),
         path: next,
         moves: moveCount.current,
         assisted: assisted || hint,
