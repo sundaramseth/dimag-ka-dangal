@@ -1,3 +1,4 @@
+import { ensureSecureCrypto } from "./crypto";
 import publicConfig from "./public-config.json";
 import {
   createClient,
@@ -30,6 +31,7 @@ export async function getCloud(): Promise<SupabaseClient | null> {
     // Accept only public publishable keys. Secret/service keys never belong in a mobile client.
     if (!key.startsWith("sb_publishable_"))
       throw Error("A public publishable key is required.");
+    ensureSecureCrypto();
     const next = createClient(url, key, {
       auth: {
         storage:
