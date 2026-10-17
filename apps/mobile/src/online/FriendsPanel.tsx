@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Share } from "react-native";
 import { useSocial, type Friend } from "./Social";
-import { googleSignIn, authMessage } from "./auth";
+import { googleSignIn, authMessage, authRedirect } from "./auth";
 import { Button, styles, C } from "../ui";
 export function FriendsPanel({
   displayName,
@@ -154,7 +154,10 @@ export function FriendsPanel({
                   throw Error("Use at least 8 characters");
                 const c = s.cloud!;
                 const r = signup
-                  ? await c.auth.signUp({ email: email.trim(), password })
+                  ? await c.auth.signUp({
+                      email: email.trim(), password,
+                      options: { emailRedirectTo: authRedirect() },
+                    })
                   : await c.auth.signInWithPassword({
                       email: email.trim(),
                       password,

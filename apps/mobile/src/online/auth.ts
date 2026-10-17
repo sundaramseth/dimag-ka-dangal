@@ -5,6 +5,9 @@ import { getCloud } from "./client";
 import config from "./public-config.json";
 if (Platform.OS === "web" && typeof window !== "undefined")
   WebBrowser.maybeCompleteAuthSession();
+export const authRedirect = () => Platform.OS === "web"
+  ? makeRedirectUri({ path: "auth/callback" })
+  : "dangal://auth/callback";
 let lastCode = "",
   exchange: Promise<void> | null = null;
 export async function completeAuthCallback(url: string) {
@@ -23,7 +26,11 @@ export async function completeAuthCallback(url: string) {
       lastCode = "";
       throw r.error;
     }
-  })();
+  })().catch((error) => {
+    lastCode = "";
+    exchange = null;
+    throw error;
+  });
   return exchange;
 }
 export async function googleSignIn() {
@@ -36,9 +43,9 @@ export async function googleSignIn() {
   const settings = await r.json();
   if (!settings.external?.google)
     throw Error(
-      "Google login needs the app owner’s Google OAuth setup. Solo and family play work without login.",
+      "Google sign-in is temporarily unavailable. Please try again later.",
     );
-  const redirect = makeRedirectUri({ scheme: "dangal", path: "auth/callback" });
+  const redirect = authRedirect();
   const { data, error } = await c.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo: redirect, skipBrowserRedirect: true },
@@ -54,7 +61,9 @@ export function authMessage(e: unknown) {
       ? e.message
       : String((e as { message?: string })?.message || "Could not connect");
   if (/not authorized|sending confirmation|email rate/i.test(m))
-    return "Email verification delivery is not configured for public testers yet. Use Google once enabled, or continue offline.";
+    return "We could not send your verification email. Please try again later.";
+  if (/email not confirmed/i.test(m))
+    return "Confirm your email before signing in.";
   if (/invalid login/i.test(m))
     return "Email/password is incorrect, or confirm your email first.";
   return m;
