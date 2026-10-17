@@ -155,7 +155,8 @@ export function FriendsPanel({
                 const c = s.cloud!;
                 const r = signup
                   ? await c.auth.signUp({
-                      email: email.trim(), password,
+                      email: email.trim(),
+                      password,
                       options: { emailRedirectTo: authRedirect() },
                     })
                   : await c.auth.signInWithPassword({

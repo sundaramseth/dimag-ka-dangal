@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, TextInput } from "react-native";
 import { useSocial, type OnlineMatch, type Ranking } from "./Social";
+import { MatchOutcome } from "./MatchOutcome";
 import { authMessage } from "./auth";
 import { Button, styles, C } from "../ui";
 export function ArenaPanel({
   game,
   onLogin,
+  onGame,
+  reducedMotion = false,
 }: {
   game: "zip" | "maze";
+  onGame?: (g: "zip" | "maze") => void;
+  reducedMotion?: boolean;
   onLogin: () => void;
 }) {
   const s = useSocial();
@@ -29,9 +34,10 @@ export function ArenaPanel({
     return (
       <View style={{ gap: 12 }}>
         <Text style={styles.subtitle}>
-          Sign in and choose a handle to meet real players.
+          Sign in once. Then tap Find opponent to play the same puzzle against
+          someone online.
         </Text>
-        <Button label="Sign in / Create account" onPress={onLogin} />
+        <Button label="Continue with Google / Email" onPress={onLogin} />
       </View>
     );
   const incoming = s.inbox.filter(
@@ -39,9 +45,21 @@ export function ArenaPanel({
   );
   return (
     <View style={{ gap: 12 }}>
-      <Text style={styles.text}>
-        {game === "maze" ? "Maze Runner" : "Number Trail"} · 3-minute battle
-      </Text>
+      <View style={styles.row}>
+        {(["zip", "maze"] as const).map((g) => (
+          <View key={g} style={{ flex: 1 }}>
+            <Button
+              label={g === "zip" ? "Number Trail" : "Maze Runner"}
+              secondary={game !== g}
+              disabled={
+                !!s.match &&
+                ["active", "waiting", "invited"].includes(s.match.state)
+              }
+              onPress={() => onGame?.(g)}
+            />
+          </View>
+        ))}
+      </View>
       <Text style={styles.subtitle}>
         Same puzzle. Server-timed results. No hints.
       </Text>
@@ -100,7 +118,9 @@ export function ArenaPanel({
           </View>
         </View>
       ))}
-      {s.match?.state === "finished" && <MatchSummary matchId={s.match.id} />}
+      {s.match?.state === "finished" && (
+        <MatchSummary matchId={s.match.id} reducedMotion={reducedMotion} />
+      )}
       <Text style={styles.h2}>Invite a friend</Text>
       {s.friends
         .filter((f) => f.status === "accepted")
@@ -258,7 +278,13 @@ type Message = {
   body: string;
   sent_at: string;
 };
-export function MatchSummary({ matchId }: { matchId: string }) {
+export function MatchSummary({
+  matchId,
+  reducedMotion = false,
+}: {
+  matchId: string;
+  reducedMotion?: boolean;
+}) {
   const s = useSocial();
   const { rpc } = s;
   const [m, setM] = useState<OnlineMatch | null>(null),
@@ -279,7 +305,7 @@ export function MatchSummary({ matchId }: { matchId: string }) {
         ]);
         if (alive) {
           setM(match);
-          setMessages(chat);
+          setMessages(chat || []);
         }
       } catch (e) {
         if (alive) setError(authMessage(e));
@@ -297,17 +323,11 @@ export function MatchSummary({ matchId }: { matchId: string }) {
   const peer = m?.players.find((p) => p.id !== s.session?.user.id);
   return (
     <View style={{ gap: 9 }}>
-      <Text style={styles.h2}>
-        {m?.state === "finished"
-          ? m.winner === s.session?.user.id
-            ? "🏆 You won!"
-            : m.winner
-              ? "Round complete"
-              : "A draw!"
-          : m?.state === "cancelled"
-            ? "Match ended"
-            : "Checking results · waiting for opponent"}
-      </Text>
+      {m ? (
+        <MatchOutcome match={m} reducedMotion={reducedMotion} />
+      ) : (
+        <Text style={styles.h2}>Checking results…</Text>
+      )}
       {m?.players.map((p) => (
         <View style={styles.between} key={p.id}>
           <Text style={styles.text}>

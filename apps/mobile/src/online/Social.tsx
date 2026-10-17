@@ -47,17 +47,26 @@ export type Ranking = {
   played: number;
   is_self: boolean;
 };
-type Profile = { id: string; handle: string; display_name: string };
+export type CloudProfile = {
+  id: string;
+  handle: string;
+  display_name: string;
+  avatar: number;
+  avatar_url: string;
+  gender: string;
+  country: string;
+};
 type SocialState = {
   cloud: SupabaseClient | null;
   session: Session | null;
-  profile: Profile | null;
+  profile: CloudProfile | null;
   friends: Friend[];
   inbox: OnlineMatch[];
   match: OnlineMatch | null;
   error: string;
   loading: boolean;
   refresh: () => Promise<void>;
+  saveProfile: (p: CloudProfile) => Promise<void>;
   rpc: <T = unknown>(
     name: string,
     args?: Record<string, unknown>,
@@ -72,13 +81,17 @@ const Context = createContext<SocialState | null>(null);
 export function SocialProvider({ children }: { children: React.ReactNode }) {
   const [cloud, setCloud] = useState<SupabaseClient | null>(null),
     [session, setSession] = useState<Session | null>(null),
-    [profile, setProfile] = useState<Profile | null>(null),
+    [profile, setProfile] = useState<CloudProfile | null>(null),
     [friends, setFriends] = useState<Friend[]>([]),
     [inbox, setInbox] = useState<OnlineMatch[]>([]),
     [match, setMatch] = useState<OnlineMatch | null>(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true);
   const selected = useRef<OnlineMatch | null>(null);
+  const identity = useRef("");
+  identity.current = session?.user.id || "";
+  const bootstrapped = useRef(""),
+    profileRevision = useRef(0);
   const select = useCallback((m: OnlineMatch | null) => {
     selected.current = m;
     setMatch(m);
@@ -133,10 +146,18 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       select(null);
       return;
     }
+    const userId = session.user.id,
+      revision = profileRevision.current;
+    if (bootstrapped.current !== userId) {
+      const p = await rpc<CloudProfile>("dangal_profile_sync");
+      if (identity.current !== userId) return;
+      setProfile(p);
+      bootstrapped.current = userId;
+    }
     const [p, f, i] = await Promise.all([
       cloud
         .from("dangal_profiles")
-        .select("id,handle,display_name")
+        .select("id,handle,display_name,avatar,avatar_url,gender,country")
         .eq("id", session.user.id)
         .maybeSingle(),
       (async () => {
@@ -153,8 +174,9 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       })(),
       rpc<OnlineMatch[]>("dangal_match_inbox"),
     ]);
+    if (identity.current !== userId) return;
     if (p.error) throw p.error;
-    setProfile(p.data);
+    if (revision === profileRevision.current) setProfile(p.data);
     setFriends(f || []);
     setInbox(i || []);
     const current = selected.current;
@@ -213,6 +235,71 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }, 0);
     return () => clearTimeout(t);
   }, [session, select]);
+  const saveProfile = async (p: CloudProfile) => {
+    const saved = await rpc<CloudProfile>("dangal_edit_profile", {
+      p_handle: p.handle,
+      p_name: p.display_name,
+      p_avatar: p.avatar,
+      p_gender: p.gender,
+      p_country: p.country,
+    });
+    profileRevision.current++;
+    setProfile(saved);
+    await refresh();
+  };
+  useEffect(() => {
+    if (!cloud || !session) return;
+    let pending: ReturnType<typeof setTimeout> | undefined;
+    const signal = () => {
+      clearTimeout(pending);
+      pending = setTimeout(
+        () => void refresh().catch((e) => setError(authMessage(e))),
+        100,
+      );
+    };
+    const channel = cloud
+      .channel(`social:${session.user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "dangal_matches",
+          filter: `user_a=eq.${session.user.id}`,
+        },
+        signal,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "dangal_matches",
+          filter: `user_b=eq.${session.user.id}`,
+        },
+        signal,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "dangal_profiles",
+          filter: `id=eq.${session.user.id}`,
+        },
+        signal,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "dangal_friendships" },
+        signal,
+      )
+      .subscribe();
+    return () => {
+      clearTimeout(pending);
+      void cloud.removeChannel(channel);
+    };
+  }, [cloud, session, refresh]);
   const queue = async (game: "zip" | "maze", peer?: string) => {
     await rpc("dangal_heartbeat", { p_online: true });
     select(
@@ -262,6 +349,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         error,
         loading,
         refresh,
+        saveProfile,
         rpc,
         queue,
         accept,
