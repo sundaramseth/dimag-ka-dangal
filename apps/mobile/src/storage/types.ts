@@ -23,7 +23,7 @@ export type LocalState = {
   wallets: Record<string, Wallet>;
 };
 export const defaultState: LocalState = {
-  profiles: [{ id: "player-1", name: "Player 1", avatar: 0 }],
+  profiles: [{ id: "player-1", name: "Explorer", avatar: -1 }],
   attempts: [],
   settings: {
     language: "en",
