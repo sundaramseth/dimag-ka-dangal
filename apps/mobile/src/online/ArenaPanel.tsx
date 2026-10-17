@@ -217,10 +217,10 @@ export function RankingsPanel({ onLogin }: { onLogin: () => void }) {
       </Text>
       <View style={{ flex: 1 }}>
         <Text style={{ ...styles.text, fontWeight: "800" }}>
-          {r.name}
+          {r.is_self ? s.profile?.display_name || r.name : r.name}
           {r.is_self ? " · YOU" : ""}
         </Text>
-        <Text style={{ fontSize: 10, color: C.muted }}>@{r.handle}</Text>
+        <Text style={{ fontSize: 10, color: C.muted }}>@{r.is_self ? s.profile?.handle || r.handle : r.handle}</Text>
       </View>
       <Text style={styles.text}>{r.wins} wins</Text>
     </View>
