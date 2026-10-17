@@ -37,3 +37,11 @@ Native build dispatched: https://github.com/sundaramseth/dimag-ka-dangal/actions
 - Added the SDK 57 native expo-crypto dependency and a minimal secure RNG/SHA-256 adapter before Supabase client creation. Native PKCE does not depend on a Math.random/plain challenge fallback. Existing browser Crypto is preserved.
 - Adapter test validates the SHA-256 `abc` vector, native randomness delegation, UUID, unsupported algorithm rejection and preservation of existing Crypto. Included in npm test/CI.
 - The preliminary Android run 39031246238 is superseded; final packaging uses the hardened source in a new workflow run. Google provider activation remains pending.
+
+## Final Android package evidence
+- Final run 39032136210 succeeded: https://github.com/sundaramseth/dimag-ka-dangal/actions/runs/39032136210 . Source: `1c54adfb9c7338a99c32143f3dab1a3501b28e86`. All app/source/assets matched before dispatch. Install/typecheck/lint, engine+native crypto tests, database policy tests, prebuild, native compilation and apksigner verification passed in CI.
+- Actual Supabase OAuth URL generation was also exercised with the native adapter: secure RNG was invoked and `code_challenge_method=s256`; no network login was performed. Final web export/gameplay/social fixtures and Android Hermes export passed after the hardening.
+- APK: `Dimag-Ka-Dangal-0.5.0-test.apk`, 62,938,870 bytes; package `com.sundaramseth.dimagkadangal`, version 0.5.0/code 5, Android 7+ (API 24), ARM64 and ARMv7. Bundled JS includes the secure crypto adapter and updated UI. Archive integrity and workflow artifact digest matched.
+- APK SHA-256: `602d65df4ad39f901a3a3043b4ffb1a19e4fb5064e54ebf76825bfa828cc6cfd`.
+- Signer certificate SHA-256: `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`, identical to the 0.4.0 review APK, supporting an in-place review update. Production signing remains a separate pre-Play task. No microphone permission is declared.
+- Phone acceptance still required: audible background/effects (Test sound), headset interruption/resume, long drag sessions, safe-area navigation, and progress preservation on update. Google/SMTP activation and real two-phone online acceptance remain pending as described above.
