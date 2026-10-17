@@ -235,6 +235,8 @@ export default function DangalApp() {
   const activeAttempts = state.attempts.filter(
     (a) => a.profileId === current.id && a.game === game && !a.sessionId,
   );
+  const starMap = new Map<number, number>();
+  for (const a of activeAttempts) starMap.set(a.level, Math.max(starMap.get(a.level) || 0, stars(a)));
   const completed = new Set(activeAttempts.map((a) => a.level));
   const wallet = state.wallets[current.id] || freshWallet();
   const activeTheme = gameTheme(
@@ -618,18 +620,7 @@ export default function DangalApp() {
             reducedMotion={settings.reducedMotion}
             next={next}
             completed={completed}
-            stars={
-              new Map(
-                activeAttempts.map((a) => [
-                  a.level,
-                  Math.max(
-                    ...activeAttempts
-                      .filter((b) => b.level === a.level)
-                      .map(stars),
-                  ),
-                ]),
-              )
-            }
+            stars={starMap}
             onPlay={start}
           />
           <View
@@ -671,6 +662,7 @@ export default function DangalApp() {
             }}
           >
             <ScrollView
+              keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
             >
               <View style={{ flex: 1, gap: 18 }}>
