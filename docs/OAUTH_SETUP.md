@@ -1,6 +1,6 @@
 # Activate Google login for the Android review build
 
-The app's Google button and PKCE callback are implemented. The current project reports Google disabled. No Google secret belongs in the app, GitHub or chat.
+The app's Google button and PKCE callback are implemented. The owner enabled Google on 17 October 2026; the initial provider redirect is verified. Completed phone login and two-device acceptance are still required. No Google secret belongs in the app, GitHub or chat.
 
 1. In the owner's Google Cloud console, select/create the intended project. Configure Google Auth Platform branding/audience for Dimag Ka Dangal. Use the owner's own support/contact account. Do not accept any new terms or change billing without the owner.
 2. Use only OpenID/email/basic profile scopes. For a Testing audience, add the intended tester accounts yourself; do not send unsolicited invitations or grant Cloud team access to testers.

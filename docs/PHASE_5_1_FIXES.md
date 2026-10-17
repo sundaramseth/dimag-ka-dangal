@@ -18,3 +18,10 @@
 ## Verification
 - TypeScript/lint and 16 engine/reward tests plus native PKCE checks passed during implementation. Prior full gameplay suite passes with the new renderer. Expanded real Chromium touch and mouse drag/resume tests, single-SVG/stroke-width assertions, intercepted email-signup redirect assertion (no real account/email sent), all gameplay checks and social UI fixtures pass. Android Hermes export also passes.
 - Physical Android long-session smoothness is not yet measured. Login will not be called fixed until real provider/account flow passes. Final native packaging evidence will be added after the build.
+
+## Final package and owner Google activation
+- Owner configured Google provider on 17 October 2026. Public Auth settings now report Google enabled. Initial PKCE authorization request returns HTTP 302 to accounts.google.com with a configured client and the exact Supabase callback. No credential value was read or logged. This verifies provider activation/initial redirect, not completed Google consent, session exchange or phone login.
+- Final native run https://github.com/sundaramseth/dimag-ka-dangal/actions/runs/39051212116 succeeded from `bb66b938f2b044e43fdba93203f121eafe5d6b8b`. Source checks, database policy suites, native compile and apksigner verification passed.
+- APK `Dimag-Ka-Dangal-0.5.1-test.apk`: 65,867,506 bytes; version 0.5.1/code 6; package com.sundaramseth.dimagkadangal; Android 7+; ARM64 and ARMv7. ZIP integrity, workflow digest and APK checksum match. New input surface and email callback are bundled.
+- APK SHA-256: `4c1e0938cfe4df9211715baab5a253b626a05f5529b6a4b7c5d3e8e93ebd88f4`. Certificate SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c` matches previous review versions for an in-place update.
+- Email confirmation remains required; custom SMTP is still pending for public tester email signup. Google activation does not configure SMTP. Native phone login, session restore and two-phone play still need acceptance. Long-session touch smoothness remains a physical-device acceptance item.
