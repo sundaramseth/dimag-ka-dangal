@@ -41,7 +41,8 @@ async function main() {
     ],
   });
   try {
-    const p = await b.newPage({ viewport: { width: 390, height: 844 } });
+    const p = await b.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
+    const touch = await p.context().newCDPSession(p);
     const errors: string[] = [];
     p.on("pageerror", (e) => errors.push(e.message));
     await p.addInitScript(() => {
@@ -67,6 +68,17 @@ async function main() {
     await p
       .getByRole("button", { name: "Create account", exact: true })
       .waitFor();
+    let signupRedirect = "";
+    await p.route("**/auth/v1/signup**", async route => {
+      signupRedirect = new URL(route.request().url()).searchParams.get("redirect_to") || "";
+      await route.fulfill({status:400,contentType:"application/json",body:JSON.stringify({code:"test_signup_intercepted",msg:"Verification test intercepted"})});
+    });
+    await p.getByRole("textbox", {name:"Email",exact:true}).fill("fixture@example.test");
+    await p.getByRole("textbox", {name:"Password",exact:true}).fill("fixture-only-password");
+    await p.getByRole("button", {name:"Create account",exact:true}).click();
+    await p.getByText("Verification test intercepted", {exact:true}).waitFor();
+    assert.equal(signupRedirect, "http://127.0.0.1:8082/auth/callback", "Email confirmation returns to app callback");
+    await p.unroute("**/auth/v1/signup**");
     await p.getByRole("button", { name: "×", exact: true }).click();
     await p.getByRole("button", { name: /Play · Puzzle/ }).click();
     await p.getByText("Your journey", { exact: true }).waitFor();
@@ -92,13 +104,30 @@ async function main() {
         return b;
       };
       const a = await box(level.solution[0]);
-      await p.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
-      await p.mouse.down();
-      for (const c of level.solution.slice(1)) {
-        const b = await box(c);
-        await p.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 1 });
+      const useTouch = game === "maze";
+      const down = async (x: number, y: number) => {
+        if (useTouch) await touch.send("Input.dispatchTouchEvent", {type:"touchStart",touchPoints:[{x,y}]});
+        else { await p.mouse.move(x,y); await p.mouse.down(); }
+      };
+      const up = async () => {
+        if (useTouch) await touch.send("Input.dispatchTouchEvent", {type:"touchEnd",touchPoints:[]});
+        else await p.mouse.up();
+      };
+      await down(a.x + a.width / 2, a.y + a.height / 2);
+      const stroke = p.locator('svg path[stroke-linecap="round"]');
+      await stroke.waitFor({ state: "attached" });
+      assert.equal(await stroke.count(), 1, "The trail uses one native SVG path");
+      assert(Number(await stroke.getAttribute("stroke-width")) >= 11, "Thicker stroke");
+      for (let i = 1; i < level.solution.length; i++) {
+        const c = level.solution[i];
+        const r = await box(c);
+        const x = r.x + r.width / 2, y = r.y + r.height / 2;
+        if (useTouch) await touch.send("Input.dispatchTouchEvent", {type:"touchMove",touchPoints:[{x,y}]});
+        else await p.mouse.move(x,y, {steps:1});
+        // Resume a stroke over a checkpoint/runner without changing its origin.
+        if (i === Math.floor(level.solution.length / 2)) { await up(); await down(x,y); }
       }
-      await p.mouse.up();
+      await up();
       await p.getByText("Puzzle cleared!", { exact: true }).waitFor();
     };
     await p
@@ -237,7 +266,7 @@ async function main() {
       .waitFor();
     assert.equal(errors.length, 0, errors.join("\n"));
     console.log(
-      "PASS: landing, login forms, upward map, paid/persistent hints, header gems, no maze markers, both drags, delayed rewards, family fairness, real web audio progress, small fixed screens, chapter companion.",
+      "PASS: intercepted email callback redirect (no account created), resumed mouse + real touch drags, single thicker SVG stroke, landing, login forms, upward map, paid/persistent hints, header gems, no maze markers, both drags, delayed rewards, family fairness, real web audio progress, small fixed screens, chapter companion.",
     );
   } finally {
     await b.close();
