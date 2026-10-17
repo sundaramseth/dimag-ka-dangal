@@ -1,5 +1,7 @@
 # Dimag Ka Dangal
 
+[0.6.0 adventure review report](docs/PHASE_6_REPORT.md) — 120 puzzles per game, live profiles/invites, named match results, circular mazes and new game navigation.
+
 An Android-first, ad-free puzzle adventure with **Number Trail** and **Maze Runner**. v0.5.0 adds an opening screen, original companions, distinct game worlds, visible gems, paid hints, multiple sound effects and an authenticated online arena.
 
 [0.5.1 login/input fixes](docs/PHASE_5_1_FIXES.md) · [Version 0.5.0 report](docs/PHASE_5_REPORT.md) · [Google activation](docs/OAUTH_SETUP.md) · [Earlier report](docs/PHASE_4_REPORT.md)
