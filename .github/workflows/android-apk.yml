@@ -36,6 +36,7 @@ jobs:
           npm ci
           node friends.mjs
           node arena.mjs
+          node profiles.mjs
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install
       - name: Build standalone test APK
@@ -47,8 +48,8 @@ jobs:
       - name: Verify and package
         run: |
           mkdir -p apk-output
-          cp android/app/build/outputs/apk/release/app-release.apk apk-output/Dimag-Ka-Dangal-0.5.1-test.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose apk-output/Dimag-Ka-Dangal-0.5.1-test.apk
+          cp android/app/build/outputs/apk/release/app-release.apk apk-output/Dimag-Ka-Dangal-0.6.0-test.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose apk-output/Dimag-Ka-Dangal-0.6.0-test.apk
           sha256sum apk-output/*.apk > apk-output/SHA256SUMS.txt
       - uses: actions/upload-artifact@v7
         with:
