@@ -56,6 +56,12 @@ export type CloudProfile = {
   gender: string;
   country: string;
 };
+// PostgREST can serialize a composite RPC result as a one-row array.
+function profileRow(value: CloudProfile | CloudProfile[]): CloudProfile {
+  const p = Array.isArray(value) ? value[0] : value;
+  if (!p || typeof p.id !== "string" || typeof p.display_name !== "string") throw Error("Profile unavailable. Please retry.");
+  return p;
+}
 type SocialState = {
   cloud: SupabaseClient | null;
   session: Session | null;
@@ -149,7 +155,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     const userId = session.user.id,
       revision = profileRevision.current;
     if (bootstrapped.current !== userId) {
-      const p = await rpc<CloudProfile>("dangal_profile_sync");
+      const p = profileRow(await rpc<CloudProfile | CloudProfile[]>("dangal_profile_sync"));
       if (identity.current !== userId) return;
       setProfile(p);
       bootstrapped.current = userId;
@@ -236,13 +242,13 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [session, select]);
   const saveProfile = async (p: CloudProfile) => {
-    const saved = await rpc<CloudProfile>("dangal_edit_profile", {
+    const saved = profileRow(await rpc<CloudProfile | CloudProfile[]>("dangal_edit_profile", {
       p_handle: p.handle,
       p_name: p.display_name,
       p_avatar: p.avatar,
       p_gender: p.gender,
       p_country: p.country,
-    });
+    }));
     profileRevision.current++;
     setProfile(saved);
     await refresh();
