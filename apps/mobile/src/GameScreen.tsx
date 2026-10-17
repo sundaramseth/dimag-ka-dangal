@@ -81,10 +81,10 @@ export function GameScreen({
       sub.remove();
     };
   }, [online]);
-  const apply = (next: number[], hint = false) => {
+  const apply = (next: number[], hint = false, moves = 1) => {
     trail.current = next;
     setPath(next);
-    moveCount.current++;
+    moveCount.current += moves;
 
     setMessage("");
     const solved =
@@ -100,25 +100,33 @@ export function GameScreen({
       });
     }
   };
-  const onCell = (cell: number) => {
-    if (done.current || cell === trail.current.at(-1)) return;
-    if (trail.current.length > 1 && cell === trail.current.at(-2)) {
-      apply(trail.current.slice(0, -1));
-      return;
+  const onCells = (cells: number[]) => {
+    if (done.current) return;
+    let next = trail.current, moves = 0, blocked = false;
+    for (const cell of cells) {
+      if (cell === next.at(-1)) continue;
+      if (next.length > 1 && cell === next.at(-2)) {
+        next = next.slice(0, -1);
+        moves++;
+        continue;
+      }
+      const candidate = [...next, cell];
+      const valid = level.kind === "zip"
+        ? zipPrefixError(level, candidate) === null
+        : mazeValid(level, candidate);
+      if (!valid) { blocked = true; continue; }
+      next = candidate;
+      moves++;
+      if (level.kind === "zip" ? next.length === level.size ** 2 : cell === level.end) break;
     }
-    const next = [...trail.current, cell];
-    const valid =
-      level.kind === "zip"
-        ? zipPrefixError(level, next) === null
-        : mazeValid(level, next);
-    if (valid) {
-      emitSound("move");
-      apply(next);
-    } else {
+    // Commit a coalesced input batch once, avoiding a separate render per cell.
+    if (moves) { emitSound("move"); apply(next, false, moves); }
+    else if (blocked) {
       emitSound("bump");
       setMessage(hi ? "रास्ता बदलें" : "Try another route");
     }
   };
+  const onCell = (cell: number) => onCells([cell]);
   return (
     <View
       style={{
@@ -165,7 +173,7 @@ export function GameScreen({
         <ZipBoard
           theme={theme}
           story={Math.floor(index / 10)}
-          onCells={(cells) => cells.forEach(onCell)}
+          onCells={onCells}
           maze={game === "maze"}
           level={level}
           path={path}

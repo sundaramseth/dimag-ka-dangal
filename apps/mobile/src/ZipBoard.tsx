@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import Svg, { Path as SvgPath } from "react-native-svg";
 import { House } from "./Scenery";
 import { Character } from "./Character";
 import { ZipLevel, wallKey } from "./engine";
@@ -138,7 +139,7 @@ export const ZipBoard = memo(function ZipBoard({
     const steps = old
       ? Math.max(
           1,
-          Math.ceil(Math.hypot(x - old.x, y - old.y) / (cellSize / 3)),
+          Math.min(size * 6, Math.ceil(Math.hypot(x - old.x, y - old.y) / (cellSize / 3))),
         )
       : 1;
     for (let i = 1; i <= steps; i++) {
@@ -148,13 +149,15 @@ export const ZipBoard = memo(function ZipBoard({
         row = Math.floor(py / cellSize);
       if (col < 0 || row < 0 || col >= size || row >= size) continue;
       // Require a small step inside a new cell, preventing edge jitter from undoing a move.
-      const margin = cellSize * 0.1;
+      const margin = cellSize * 0.04;
+      const previousCol = lastCell.current % size;
+      const previousRow = Math.floor(lastCell.current / size);
       if (
         lastCell.current >= 0 &&
-        (px - col * cellSize < margin ||
-          px - col * cellSize > cellSize - margin ||
-          py - row * cellSize < margin ||
-          py - row * cellSize > cellSize - margin)
+        ((col !== previousCol &&
+          (px - col * cellSize < margin || px - col * cellSize > cellSize - margin)) ||
+          (row !== previousRow &&
+          (py - row * cellSize < margin || py - row * cellSize > cellSize - margin)))
       )
         continue;
       const cell = row * size + col;
@@ -186,7 +189,11 @@ export const ZipBoard = memo(function ZipBoard({
           e.nativeEvent.pageX - geometry.current.x,
           e.nativeEvent.pageY - geometry.current.y,
         ),
-      onPanResponderRelease: flush,
+      onPanResponderRelease: (e) => {
+        sample(e.nativeEvent.pageX - geometry.current.x, e.nativeEvent.pageY - geometry.current.y);
+        flush();
+        lastPoint.current = null;
+      },
       onPanResponderTerminate: () => {
         pending.current = [];
         if (frame.current !== null) cancelAnimationFrame(frame.current);
@@ -207,7 +214,6 @@ export const ZipBoard = memo(function ZipBoard({
   );
   return (
     <View
-      {...responder.panHandlers}
       style={{
         width: boardWidth,
         height: boardWidth,
@@ -226,25 +232,21 @@ export const ZipBoard = memo(function ZipBoard({
         onCell={stableTap}
       />
       <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
-        {path.map((cell, i) => {
-          const a = centre(cell),
-            b = i ? centre(path[i - 1]) : a,
-            horizontal = a.y === b.y;
-          return (
-            <View
-              key={cell}
-              style={{
-                position: "absolute",
-                left: Math.min(a.x, b.x) - 4,
-                top: Math.min(a.y, b.y) - 4,
-                width: horizontal ? Math.abs(a.x - b.x) + 8 : 8,
-                height: horizontal ? 8 : Math.abs(a.y - b.y) + 8,
-                borderRadius: 5,
-                backgroundColor: theme.path,
-              }}
+        <Svg width={boardWidth} height={boardWidth} pointerEvents="none">
+          {path.length > 0 && (
+            <SvgPath
+              d={path.map((cell, i) => {
+                const p = centre(cell);
+                return `${i ? "L" : "M"}${p.x},${p.y}`;
+              }).join(" ") + (path.length === 1 ? " l0.01,0" : "")}
+              fill="none"
+              stroke={theme.path}
+              strokeWidth={Math.max(11, Math.min(18, cellSize * 0.36))}
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
-          );
-        })}
+          )}
+        </Svg>
         {Object.entries(level.checkpoints).map(([key, n]) => {
           const cell = +key;
           if (maze && n === 1 && path.length) return null;
@@ -294,6 +296,15 @@ export const ZipBoard = memo(function ZipBoard({
           </View>
         )}
       </View>
+      {/* A leaf input surface keeps native locationX/Y relative to one stable
+          target, even when the finger starts over a number or the runner. */}
+      <View
+        {...responder.panHandlers}
+        testID="board-input-surface"
+        accessible={false}
+        collapsable={false}
+        style={{ position: "absolute", inset: 0 }}
+      />
     </View>
   );
 });
