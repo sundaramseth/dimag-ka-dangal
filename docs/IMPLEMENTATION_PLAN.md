@@ -53,3 +53,6 @@ Development/local APK testing: zero incremental cash assuming existing hardware/
 
 ## Delivery acceptance
 A fresh checkout installs from lockfile; named profiles/settings/results survive app restart; 30 levels are valid; all three games reach real results; family rounds rotate players; reset/retry/save failures are visible; offline family boards label device scope; README explains running and building; reports distinguish tested code from unverified native/device behavior.
+
+## v0.5.0 feedback iteration
+Companion-led landing/journey, per-game worlds, visible gem wallet/paid hints, audible move/level/win feedback; authenticated presence, friend requests, invitation/public pairing, validated server results, private match chat and public top50/self + all-friend rankings. See PHASE_5_REPORT.md for deployment/tests and OAUTH_SETUP.md for the remaining external Google/SMTP activation.
