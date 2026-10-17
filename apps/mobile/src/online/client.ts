@@ -1,3 +1,4 @@
+import publicConfig from "./public-config.json";
 import {
   createClient,
   processLock,
@@ -16,26 +17,10 @@ export async function getCloud(): Promise<SupabaseClient | null> {
   if (client) return client;
   if (pending) return pending;
   pending = (async () => {
-    let url = process.env.EXPO_PUBLIC_SUPABASE_URL || "",
-      key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
-    if (!url || !key) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
-      let r: Response;
-      try {
-        r = await fetch(
-          "https://raw.githubusercontent.com/sundaramseth/dimag-ka-dangal/main/config/cloud.json",
-          { signal: controller.signal, cache: "no-store" },
-        );
-      } finally {
-        clearTimeout(timeout);
-      }
-      if (!r.ok) throw Error("Online setup is not available yet.");
-      const config = await r.json();
-      if (!config.ready) return null;
-      url = config.url;
-      key = config.publishableKey;
-    }
+    const url = process.env.EXPO_PUBLIC_SUPABASE_URL || publicConfig.url;
+    const key =
+      process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+      publicConfig.publishableKey;
     const parsed = new URL(url);
     if (
       parsed.protocol !== "https:" ||
@@ -47,8 +32,25 @@ export async function getCloud(): Promise<SupabaseClient | null> {
       throw Error("A public publishable key is required.");
     const next = createClient(url, key, {
       auth: {
-        storage: Platform.OS === "web" ? undefined : secureStorage,
-        persistSession: Platform.OS !== "web",
+        storage:
+          Platform.OS === "web"
+            ? {
+                getItem: (k: string) =>
+                  typeof window !== "undefined"
+                    ? window.sessionStorage.getItem(k)
+                    : null,
+                setItem: (k: string, v: string) => {
+                  if (typeof window !== "undefined")
+                    window.sessionStorage.setItem(k, v);
+                },
+                removeItem: (k: string) => {
+                  if (typeof window !== "undefined")
+                    window.sessionStorage.removeItem(k);
+                },
+              }
+            : secureStorage,
+        persistSession: true,
+        flowType: "pkce",
         autoRefreshToken: true,
         detectSessionInUrl: false,
         lock: processLock,
