@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
-    "@supabase/supabase-js": "^2.118.0",
+    "@supabase/supabase-js": "2.118.0",
     "expo": "~57.0.29",
     "expo-asset": "~57.0.20",
     "expo-audio": "~57.0.5",
+    "expo-auth-session": "~57.0.16",
     "expo-constants": "~57.0.22",
     "expo-haptics": "~57.0.3",
     "expo-linking": "~57.0.13",
@@ -14,6 +15,7 @@
     "expo-secure-store": "~57.0.4",
     "expo-sqlite": "~57.0.4",
     "expo-status-bar": "~57.0.1",
+    "expo-web-browser": "~57.0.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
@@ -42,7 +44,8 @@
     "lint": "expo lint",
     "export:web": "expo export --platform web",
     "export:android": "expo export --platform android",
-    "test:browser": "node --import tsx scripts/smoke.ts"
+    "test:browser": "node --import tsx scripts/smoke.ts",
+    "test:social-ui": "node --import tsx scripts/social-ui.ts"
   },
   "private": true
 }
