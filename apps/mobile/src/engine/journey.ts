@@ -1,6 +1,6 @@
 import { Attempt } from "./index";
 export type JourneyGame = "zip" | "maze";
-export const PUZZLES = 30;
+export const PUZZLES = 120;
 export function unlocked(
   attempts: Attempt[],
   profileId: string,
@@ -47,3 +47,20 @@ export function streak(
   }
   return n;
 }
+
+// One rule for result screens and map stars. Assisted solves cannot earn speed stars.
+export function stars(a: Pick<Attempt, "elapsedMs" | "assisted">): number {
+  const n =
+    a.elapsedMs < 10000
+      ? 5
+      : a.elapsedMs < 30000
+        ? 4
+        : a.elapsedMs < 60000
+          ? 3
+          : a.elapsedMs < 120000
+            ? 2
+            : 1;
+  return a.assisted ? Math.min(3, n) : n;
+}
+export const nodeKind = (i: number) =>
+  i % 10 === 9 ? "dragon" : i % 10 === 6 ? "danger" : "normal";
