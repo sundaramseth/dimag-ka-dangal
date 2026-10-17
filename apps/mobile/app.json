@@ -2,7 +2,7 @@
   "expo": {
     "name": "Dimag Ka Dangal",
     "slug": "dimag-ka-dangal",
-    "version": "0.5.1",
+    "version": "0.6.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.sundaramseth.dimagkadangal",
-      "versionCode": 6,
+      "versionCode": 7,
       "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
@@ -37,7 +37,8 @@
       ],
       "expo-secure-store",
       "expo-asset",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-font"
     ],
     "scheme": "dangal",
     "splash": {
