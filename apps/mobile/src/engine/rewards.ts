@@ -66,3 +66,10 @@ export function migrateWallet(attempts: Attempt[], profileId: string) {
   return w;
 }
 export const secondsText = (ms: number) => `${Math.floor(ms / 1000)}s`;
+
+export const HINT_COST = 5;
+export function spendHint(wallet: Wallet): Wallet | null {
+  return wallet.gems >= HINT_COST
+    ? { ...wallet, gems: wallet.gems - HINT_COST }
+    : null;
+}

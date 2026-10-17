@@ -6,6 +6,8 @@ import {
   freshWallet,
   migrateWallet,
   secondsText,
+  spendHint,
+  HINT_COST,
 } from "./rewards";
 import { Attempt } from "./index";
 const attempt = (i: number, extra: Partial<Attempt> = {}): Attempt => ({
@@ -57,4 +59,17 @@ test("migration preserves old progress without duplicate reward claims and secon
   assert.equal(migrateWallet(a, "p").gems, 24);
   assert.equal(secondsText(9020), "9s");
   assert.equal(secondsText(65000), "65s");
+});
+
+// Hint spending preserves cosmetic ownership and never makes the balance negative.
+test("paid hints conserve gems and reject insufficient balance", () => {
+  const w = { ...freshWallet(), gems: 12 };
+  const a = spendHint(w)!;
+  const b = spendHint(a)!;
+  assert.equal(HINT_COST, 5);
+  assert.equal(w.gems, 12);
+  assert.equal(a.gems, 7);
+  assert.equal(b.gems, 2);
+  assert.equal(spendHint(b), null);
+  assert.deepEqual(b.themes, w.themes);
 });
