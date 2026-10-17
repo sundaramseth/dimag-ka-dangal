@@ -48,3 +48,7 @@ test("circular mazes wrap around sectors while blocking non-neighbours", () => {
   assert.ok(d.cells!.length < d.size ** 2);
   assert.ok(d.solution.every((c) => d.cells!.includes(c)));
 });
+
+test("later Number Trail puzzles keep alternate passages instead of becoming one corridor",()=>{
+ for(let i=30;i<120;i++){const z=makeZipLevel(i);const possible=(z.size-1)*(z.size-1);assert.ok(z.walls.length<possible/2);assert.ok(zipSolved(z,z.solution));}
+});
