@@ -2,7 +2,6 @@ import React, {
   memo,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -13,7 +12,8 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { House, Rider } from "./Scenery";
+import { House } from "./Scenery";
+import { Character } from "./Character";
 import { ZipLevel, wallKey } from "./engine";
 import { Theme, THEMES } from "./themes";
 type BoardLevel = Pick<ZipLevel, "size" | "walls" | "checkpoints"> & {
@@ -93,6 +93,7 @@ export const ZipBoard = memo(function ZipBoard({
   maxWidth = 340,
   maze = false,
   theme = THEMES.forest,
+  story = 0,
 }: {
   level: BoardLevel;
   path: number[];
@@ -102,6 +103,7 @@ export const ZipBoard = memo(function ZipBoard({
   maxWidth?: number;
   maze?: boolean;
   theme?: Theme;
+  story?: number;
 }) {
   const { width } = useWindowDimensions();
   const boardWidth = Math.min(width - 48, maxWidth),
@@ -195,7 +197,6 @@ export const ZipBoard = memo(function ZipBoard({
       onShouldBlockNativeResponder: () => true,
     }),
   );
-  const selected = useMemo(() => new Set(path), [path]);
   const centre = (cell: number) => ({
     x: ((cell % level.size) + 0.5) * cellSize,
     y: (Math.floor(cell / level.size) + 0.5) * cellSize,
@@ -244,26 +245,6 @@ export const ZipBoard = memo(function ZipBoard({
             />
           );
         })}
-        {level.relics?.map((cell) => {
-          const p = centre(cell);
-          return (
-            !selected.has(cell) && (
-              <Text
-                key={`relic-${cell}`}
-                style={{
-                  position: "absolute",
-                  left: p.x - 7,
-                  top: p.y - 10,
-                  color: theme.path,
-                  fontSize: 16,
-                  fontWeight: "900",
-                }}
-              >
-                ◆
-              </Text>
-            )
-          );
-        })}
         {Object.entries(level.checkpoints).map(([key, n]) => {
           const cell = +key;
           if (maze && n === 1 && path.length) return null;
@@ -286,7 +267,7 @@ export const ZipBoard = memo(function ZipBoard({
             >
               {maze ? (
                 n === 1 ? (
-                  <Rider />
+                  <Character story={story} size={26} />
                 ) : (
                   <House />
                 )
@@ -309,7 +290,7 @@ export const ZipBoard = memo(function ZipBoard({
               transform: [{ scale: Math.min(1, (cellSize - 3) / 28) }],
             }}
           >
-            <Rider />
+            <Character story={story} size={26} />
           </View>
         )}
       </View>

@@ -89,3 +89,35 @@ export const chapterTheme = (i: number): ThemeId =>
   i < 10 ? "forest" : i < 20 ? "alpine" : "falls";
 export const effectiveTheme = (wallet: Wallet, index: number) =>
   THEMES[wallet.selected === "auto" ? chapterTheme(index) : wallet.selected];
+
+const trailThemeCache = new Map<string, Theme>();
+export function gameTheme(
+  wallet: Wallet,
+  index: number,
+  game: "zip" | "maze",
+): Theme {
+  const t = effectiveTheme(wallet, index);
+  const key = `${t.id}:${Math.floor(index / 10)}:${wallet.selected}`;
+  if (game === "zip" && trailThemeCache.has(key))
+    return trailThemeCache.get(key)!;
+  const result: Theme =
+    game === "maze"
+      ? t
+      : {
+          ...t,
+          name: ["Lumi Gardens", "Starlight Steps", "Aurora Isles"][
+            Math.min(2, Math.floor(index / 10))
+          ],
+          ground: ["#E8DEF4", "#DCE9F8", "#D9F0EA"][
+            Math.min(2, Math.floor(index / 10))
+          ],
+          field: "#FCF9FF",
+          wall: "#776398",
+          path: wallet.selected === "auto" ? "#AE71CF" : t.path,
+          tile: "#E8DFF5",
+          ink: "#44365D",
+          accent: "#B59AD7",
+        };
+  if (game === "zip") trailThemeCache.set(key, result);
+  return result;
+}

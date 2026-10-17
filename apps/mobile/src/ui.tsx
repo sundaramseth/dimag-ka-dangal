@@ -1,4 +1,5 @@
 import React from "react";
+import { emitSound } from "./sound";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 export const C = {
   bg: "#E8EEDB",
@@ -115,7 +116,10 @@ export function Button({
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled}
-      onPress={onPress}
+      onPress={() => {
+        emitSound("tap");
+        onPress();
+      }}
       style={({ pressed }) => ({
         minHeight: 50,
         paddingHorizontal: 18,

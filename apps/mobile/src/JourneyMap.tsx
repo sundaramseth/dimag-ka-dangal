@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { PUZZLES } from "./engine/journey";
 import { chapterTheme, THEMES } from "./themes";
 import { C } from "./ui";
+import { Character, STORIES } from "./Character";
 import { Tree } from "./Scenery";
 export function Mountain({ colour = "#889BA2" }: { colour?: string }) {
   return (
@@ -81,16 +82,23 @@ export function JourneyMap({
   next,
   completed,
   onPlay,
+  game = "maze",
+  reducedMotion = false,
 }: {
   next: number;
   completed: Set<number>;
   onPlay: (i: number) => void;
+  game?: "zip" | "maze";
+  reducedMotion?: boolean;
 }) {
   const scroll = useRef<ScrollView>(null);
-  const height = PUZZLES * 112 + 100;
+  const step = 88,
+    height = PUZZLES * step + 130;
+  const x = (i: number) => [0, 65, 96, 60, -12, -77, -94, -48, 25, 79][i % 10];
+  const y = (i: number) => (PUZZLES - 1 - i) * step + 100;
   const go = () =>
     scroll.current?.scrollTo({
-      y: Math.max(0, (PUZZLES - 1 - next) * 112 - 150),
+      y: Math.max(0, y(next) - 180),
       animated: false,
     });
   return (
@@ -99,93 +107,164 @@ export function JourneyMap({
       bounces={false}
       overScrollMode="never"
       onContentSizeChange={go}
-      contentContainerStyle={{ paddingBottom: 10 }}
+      contentContainerStyle={{ paddingBottom: 8 }}
     >
       <View
-        style={{ height, width: "100%", maxWidth: 430, alignSelf: "center" }}
+        style={{
+          height,
+          width: "100%",
+          maxWidth: 430,
+          alignSelf: "center",
+          backgroundColor: game === "maze" ? "#D1EACB" : "#E4D5EE",
+        }}
       >
-        {Array.from({ length: 3 }, (_, chapter) => {
-          const theme = THEMES[chapterTheme(chapter * 10)];
+        {Array.from({ length: 3 }, (_, ch) => {
+          const story = STORIES[ch];
+          const theme = THEMES[chapterTheme(ch * 10)];
           return (
             <View
-              key={chapter}
+              key={ch}
               pointerEvents="none"
               style={{
                 position: "absolute",
-                top: (2 - chapter) * 1120,
+                top: (2 - ch) * step * 10,
                 width: "100%",
-                height: 1120,
-                backgroundColor: theme.ground,
+                height: step * 10 + 100,
+                backgroundColor:
+                  game === "maze"
+                    ? story.ground
+                    : ["#EDDDF5", "#DCE5F5", "#CEE9E7"][ch],
                 overflow: "hidden",
               }}
             >
-              <Text
+              <View
                 style={{
                   position: "absolute",
-                  top: 30,
+                  top: 32,
                   alignSelf: "center",
-                  color: theme.ink,
-                  fontWeight: "900",
-                  fontSize: 12,
-                  letterSpacing: 1,
+                  paddingHorizontal: 18,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  backgroundColor: "#FFFFFF99",
+                  borderBottomWidth: 3,
+                  borderColor: "#FFFFFF",
                 }}
               >
-                CHAPTER {chapter + 1} · {theme.name}
-              </Text>
-              {Array.from({ length: 6 }, (_, i) => (
-                <View
-                  key={i}
+                <Text
                   style={{
-                    position: "absolute",
-                    top: 150 + i * 155,
-                    left: i % 2 ? undefined : 8,
-                    right: i % 2 ? 8 : undefined,
-                    opacity: 0.8,
+                    fontSize: 11,
+                    fontWeight: "900",
+                    letterSpacing: 1,
+                    color: theme.ink,
                   }}
                 >
-                  {theme.scene === "forest" ? (
-                    <View style={{ flexDirection: "row", gap: 4 }}>
-                      <Tree />
-                      <Tree small />
-                    </View>
-                  ) : theme.scene === "mountain" ? (
-                    <Mountain />
-                  ) : (
-                    <Waterfall />
-                  )}
+                  CHAPTER {ch + 1} ·{" "}
+                  {game === "maze"
+                    ? story.title
+                    : ["Lumi Gardens", "Starlight Steps", "Aurora Isles"][ch]}
+                </Text>
+              </View>
+              {Array.from({ length: 5 }, (_, j) => (
+                <View
+                  key={j}
+                  style={{
+                    position: "absolute",
+                    top: 120 + j * 156,
+                    left: j % 2 ? undefined : -18,
+                    right: j % 2 ? -18 : undefined,
+                    width: 133,
+                    height: 100,
+                  }}
+                >
+                  <View
+                    style={{
+                      position: "absolute",
+                      bottom: 0,
+                      width: 133,
+                      height: 42,
+                      borderRadius: 80,
+                      backgroundColor: game === "maze" ? "#93B58C" : "#B8A4CB",
+                      borderTopWidth: 13,
+                      borderColor: game === "maze" ? "#BED19A" : "#D8C6E7",
+                      transform: [{ rotate: j % 2 ? "8deg" : "-8deg" }],
+                    }}
+                  />
+                  <View style={{ alignItems: "center", marginTop: -15 }}>
+                    {ch === 0 ? (
+                      <View style={{ flexDirection: "row", gap: 7 }}>
+                        <Tree />
+                        <Tree small />
+                      </View>
+                    ) : ch === 1 ? (
+                      <Mountain
+                        colour={game === "maze" ? "#7994AA" : "#ACA0C2"}
+                      />
+                    ) : (
+                      <View
+                        style={{ transform: [{ scale: 0.62 }], marginTop: -35 }}
+                      >
+                        <Waterfall />
+                      </View>
+                    )}
+                  </View>
+                  <Text
+                    style={{
+                      position: "absolute",
+                      bottom: 17,
+                      left: 18,
+                      color: "#FFF0B6",
+                      fontSize: 22,
+                    }}
+                  >
+                    ✦
+                  </Text>
                 </View>
               ))}
             </View>
           );
         })}
+        {Array.from({ length: PUZZLES - 1 }, (_, i) =>
+          Array.from({ length: 12 }, (_, j) => {
+            const t = j / 12,
+              u = (j + 1) / 12;
+            const point = (v: number) => ({
+              x: x(i) + (x(i + 1) - x(i)) * (v * v * (3 - 2 * v)),
+              y: y(i) + 26 - step * v,
+            });
+            const a = point(t),
+              b = point(u),
+              length = Math.hypot(b.x - a.x, b.y - a.y) + 3;
+            return (
+              <View
+                key={`${i}-${j}`}
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  marginLeft: (a.x + b.x) / 2 - 7,
+                  top: (a.y + b.y) / 2 - length / 2,
+                  width: 14,
+                  height: length,
+                  borderRadius: 8,
+                  backgroundColor: completed.has(i) ? "#E9B764" : "#FFFFFFBC",
+                  borderLeftWidth: 3,
+                  borderRightWidth: 3,
+                  borderColor: completed.has(i) ? "#F9DEA1" : "#D8C5DD",
+                  transform: [
+                    {
+                      rotate: `${(-Math.atan2(b.x - a.x, b.y - a.y) * 180) / Math.PI}deg`,
+                    },
+                  ],
+                }}
+              />
+            );
+          }),
+        )}
         {Array.from({ length: PUZZLES }, (_, i) => {
-          const x = [0, 60, 86, 45, -30, -75, -60][i % 7],
-            px = [0, 60, 86, 45, -30, -75, -60][(i + 1) % 7],
-            y = (PUZZLES - 1 - i) * 112 + 60,
-            locked = i > next,
-            solved = completed.has(i),
-            theme = THEMES[chapterTheme(i)];
+          const locked = i > next,
+            solved = completed.has(i);
           return (
             <React.Fragment key={i}>
-              {i < PUZZLES - 1 && (
-                <View
-                  style={{
-                    position: "absolute",
-                    top: y - 84,
-                    left: "50%",
-                    marginLeft: (x + px) / 2 - 5,
-                    width: 10,
-                    height: 112,
-                    borderRadius: 6,
-                    backgroundColor: solved ? "#C7AB78" : "#C6CEBE",
-                    transform: [
-                      {
-                        rotate: `${(Math.atan2(px - x, 112) * 180) / Math.PI}deg`,
-                      },
-                    ],
-                  }}
-                />
-              )}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Puzzle ${i + 1}${locked ? ", locked" : solved ? ", completed" : ", play"}`}
@@ -194,45 +273,85 @@ export function JourneyMap({
                 onPress={() => onPlay(i)}
                 style={{
                   position: "absolute",
-                  top: y,
+                  top: y(i),
                   left: "50%",
-                  marginLeft: x - 31,
+                  marginLeft: x(i) - 31,
                   width: 62,
-                  height: 62,
-                  borderRadius: 24,
+                  height: 54,
+                  borderRadius: 28,
                   backgroundColor: locked
-                    ? "#DAE0D0"
+                    ? "#C4BED1"
                     : solved
-                      ? theme.wall
-                      : theme.accent,
-                  borderWidth: i === next ? 4 : 2,
-                  borderColor:
-                    i === next ? "#C99436" : locked ? "#C3CCB9" : "#E7EFD8",
+                      ? "#E7AD4F"
+                      : game === "maze"
+                        ? "#5DAF85"
+                        : "#A47CCA",
+                  borderWidth: 3,
+                  borderBottomWidth: 7,
+                  borderColor: locked
+                    ? "#ACA5BC"
+                    : solved
+                      ? "#B67B36"
+                      : game === "maze"
+                        ? "#3A7C61"
+                        : "#795695",
                   alignItems: "center",
                   justifyContent: "center",
-                  boxShadow: "0 5px 0 #9DAE8C",
+                  boxShadow: "0 3px 0 #FFFFFF99",
                 }}
               >
                 <Text
                   style={{
-                    fontSize: 22,
+                    fontSize: locked ? 17 : 21,
                     fontWeight: "900",
-                    color: locked ? "#9AA68F" : solved ? "#F6DC91" : theme.ink,
+                    color: locked ? "#ECE8F2" : "#FFF9E9",
                   }}
                 >
-                  {locked ? "·" : solved ? "★" : i + 1}
+                  {locked ? "⌁" : i + 1}
                 </Text>
+                {solved && (
+                  <Text
+                    style={{
+                      position: "absolute",
+                      bottom: -22,
+                      color: "#CA8D32",
+                      fontSize: 19,
+                    }}
+                  >
+                    ★
+                  </Text>
+                )}
               </Pressable>
+              {i === next && (
+                <View
+                  pointerEvents="none"
+                  style={{
+                    position: "absolute",
+                    top: y(i) - 30,
+                    left: "50%",
+                    marginLeft: x(i) + (x(i) > 0 ? -88 : 43),
+                  }}
+                >
+                  <Character
+                    game={game}
+                    story={Math.floor(i / 10)}
+                    size={54}
+                    animate
+                    reducedMotion={reducedMotion}
+                  />
+                </View>
+              )}
             </React.Fragment>
           );
         })}
         <Text
           style={{
             position: "absolute",
-            bottom: 4,
+            bottom: 8,
             alignSelf: "center",
-            color: C.muted,
             fontSize: 11,
+            fontWeight: "800",
+            color: C.muted,
           }}
         >
           START ↑

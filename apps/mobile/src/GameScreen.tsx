@@ -9,12 +9,15 @@ import {
 } from "./engine";
 import { makeMaze, mazeSolved, mazeValid } from "./engine/maze";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Character, STORIES } from "./Character";
+import { emitSound } from "./sound";
 import { secondsText } from "./engine/rewards";
 import { Theme, THEMES } from "./themes";
-import { Mountain, Waterfall } from "./JourneyMap";
-import { Tree } from "./Scenery";
 import { ZipBoard } from "./ZipBoard";
 import { Button, C, styles } from "./ui";
+export type FinishStats = Pick<Attempt, "elapsedMs" | "moves" | "assisted"> & {
+  path: number[];
+};
 export type ActiveGame = "zip" | "maze";
 export function GameScreen({
   game,
@@ -24,14 +27,22 @@ export function GameScreen({
   onExit,
   onFinish,
   theme = THEMES.forest,
+  gems = 0,
+  playerName = "Player",
+  onHint = () => false,
+  online = false,
 }: {
+  gems?: number;
+  playerName?: string;
+  onHint?: () => boolean;
+  online?: boolean;
   theme?: Theme;
   game: ActiveGame;
   index: number;
   variant: number;
   hi: boolean;
   onExit: () => void;
-  onFinish: (stats: Pick<Attempt, "elapsedMs" | "moves" | "assisted">) => void;
+  onFinish: (stats: FinishStats) => void;
 }) {
   const level = useMemo(
     () =>
@@ -83,6 +94,7 @@ export function GameScreen({
       onFinish({
         elapsedMs:
           elapsed.current + (active.current ? Date.now() - tick.current : 0),
+        path: next,
         moves: moveCount.current,
         assisted: assisted || hint,
       });
@@ -99,8 +111,13 @@ export function GameScreen({
       level.kind === "zip"
         ? zipPrefixError(level, next) === null
         : mazeValid(level, next);
-    if (valid) apply(next);
-    else setMessage(hi ? "रास्ता बदलें" : "Try another route");
+    if (valid) {
+      emitSound("move");
+      apply(next);
+    } else {
+      emitSound("bump");
+      setMessage(hi ? "रास्ता बदलें" : "Try another route");
+    }
   };
   return (
     <View
@@ -120,96 +137,34 @@ export function GameScreen({
         <Text style={styles.text}>{secondsText(seconds)}</Text>
       </View>
       <View style={styles.between}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Character game={game} story={Math.floor(index / 10)} size={28} />
+          <Text numberOfLines={1} style={{ ...styles.text, maxWidth: 105 }}>
+            {playerName}
+          </Text>
+        </View>
+        <Text
+          accessibilityLabel={`${gems} gems`}
+          style={{ fontSize: 15, fontWeight: "900", color: theme.ink }}
+        >
+          💎 {gems}
+        </Text>
+      </View>
+      <View style={styles.between}>
         <Text style={styles.label}>
           {hi ? "पज़ल" : "PUZZLE"} {index + 1}
         </Text>
         <Text style={styles.subtitle}>
           {level.kind === "maze"
-            ? `◆ ${level.relics.filter((c) => path.includes(c)).length}/${level.relics.length}`
+            ? `${STORIES[Math.min(2, Math.floor(index / 10))].name} → ⌂`
             : `${path.length}/${level.size ** 2}`}
           {assisted ? " · ✦" : ""}
         </Text>
       </View>
       <View style={{ alignItems: "center", gap: compact ? 4 : 10 }}>
-        {game === "maze" && !compact && (
-          <View
-            pointerEvents="none"
-            style={{
-              height: 82,
-              width: 280,
-              alignItems: "center",
-              justifyContent: "flex-end",
-            }}
-          >
-            <View
-              style={{
-                position: "absolute",
-                bottom: 0,
-                width: 270,
-                height: 35,
-                borderTopLeftRadius: 100,
-                borderTopRightRadius: 90,
-                backgroundColor: theme.tile,
-              }}
-            />
-            {theme.scene === "mountain" ? (
-              <View
-                style={{ flexDirection: "row", alignItems: "flex-end", gap: 4 }}
-              >
-                <View
-                  style={{ transform: [{ scale: 0.75 }], marginBottom: -10 }}
-                >
-                  <Mountain colour={theme.accent} />
-                </View>
-                <Mountain colour={theme.wall} />
-                <View
-                  style={{ transform: [{ scale: 0.65 }], marginBottom: -14 }}
-                >
-                  <Mountain colour={theme.accent} />
-                </View>
-              </View>
-            ) : theme.scene === "waterfall" ? (
-              <View
-                style={{
-                  height: 82,
-                  width: 240,
-                  flexDirection: "row",
-                  alignItems: "flex-end",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Tree />
-                <View
-                  style={{
-                    position: "absolute",
-                    left: 90,
-                    top: -24,
-                    transform: [{ scale: 0.6 }],
-                  }}
-                >
-                  <Waterfall />
-                </View>
-                <Mountain colour={theme.wall} />
-              </View>
-            ) : (
-              <View
-                style={{
-                  flexDirection: "row",
-                  gap: 16,
-                  alignItems: "flex-end",
-                }}
-              >
-                <Tree small />
-                <Tree />
-                <Tree small />
-                <Tree />
-                <Tree small />
-              </View>
-            )}
-          </View>
-        )}
         <ZipBoard
           theme={theme}
+          story={Math.floor(index / 10)}
           onCells={(cells) => cells.forEach(onCell)}
           maze={game === "maze"}
           level={level}
@@ -218,10 +173,7 @@ export function GameScreen({
           hi={hi}
           maxWidth={Math.max(
             180,
-            Math.min(
-              360,
-              height - insets.top - insets.bottom - (compact ? 240 : 350),
-            ),
+            Math.min(360, height - insets.top - insets.bottom - 340),
           )}
         />
         <Text style={{ color: C.muted, fontSize: 12, textAlign: "center" }}>
@@ -230,8 +182,8 @@ export function GameScreen({
               ? "1 → 2 → 3 · पूरा बोर्ड भरें"
               : "1 → 2 → 3 · Fill every cell"
             : hi
-              ? "क्रिस्टल चुनें · घर तक पहुँचें"
-              : "Collect crystals · Find the way home"}
+              ? "अपने साथी को घर तक पहुँचाएँ"
+              : "Guide your companion home"}
         </Text>
         <Text
           accessibilityLiveRegion="polite"
@@ -263,9 +215,15 @@ export function GameScreen({
         </View>
         <View style={{ flex: 1 }}>
           <Button
-            label="Hint ✦"
+            label={online ? "No hints" : "Hint · 💎5"}
+            disabled={online || gems < 5}
             secondary
             onPress={() => {
+              if (!onHint()) {
+                setMessage("Need 5 gems");
+                return;
+              }
+              emitSound("hint");
               setAssisted(true);
               const next =
                 level.kind === "zip"
