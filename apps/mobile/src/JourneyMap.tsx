@@ -1,6 +1,8 @@
 import React, { useRef } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { PUZZLES } from "./engine/journey";
+import Svg, { Path } from "react-native-svg";
+import { Doodle } from "./Doodle";
+import { PUZZLES, nodeKind } from "./engine/journey";
 import { chapterTheme, THEMES } from "./themes";
 import { C } from "./ui";
 import { Character, STORIES } from "./Character";
@@ -81,12 +83,14 @@ export function Waterfall() {
 export function JourneyMap({
   next,
   completed,
+  stars,
   onPlay,
   game = "maze",
   reducedMotion = false,
 }: {
   next: number;
   completed: Set<number>;
+  stars: Map<number, number>;
   onPlay: (i: number) => void;
   game?: "zip" | "maze";
   reducedMotion?: boolean;
@@ -118,7 +122,7 @@ export function JourneyMap({
           backgroundColor: game === "maze" ? "#D1EACB" : "#E4D5EE",
         }}
       >
-        {Array.from({ length: 3 }, (_, ch) => {
+        {Array.from({ length: PUZZLES / 10 }, (_, ch) => {
           const story = STORIES[ch];
           const theme = THEMES[chapterTheme(ch * 10)];
           return (
@@ -127,13 +131,13 @@ export function JourneyMap({
               pointerEvents="none"
               style={{
                 position: "absolute",
-                top: (2 - ch) * step * 10,
+                top: (PUZZLES / 10 - 1 - ch) * step * 10,
                 width: "100%",
                 height: step * 10 + 100,
                 backgroundColor:
                   game === "maze"
                     ? story.ground
-                    : ["#EDDDF5", "#DCE5F5", "#CEE9E7"][ch],
+                    : ["#EDDDF5", "#DCE5F5", "#CEE9E7"][ch % 3],
                 overflow: "hidden",
               }}
             >
@@ -161,7 +165,7 @@ export function JourneyMap({
                   CHAPTER {ch + 1} ·{" "}
                   {game === "maze"
                     ? story.title
-                    : ["Lumi Gardens", "Starlight Steps", "Aurora Isles"][ch]}
+                    : `${["Lumi Gardens", "Starlight Steps", "Aurora Isles"][ch % 3]} · ${ch + 1}`}
                 </Text>
               </View>
               {Array.from({ length: 5 }, (_, j) => (
@@ -190,12 +194,12 @@ export function JourneyMap({
                     }}
                   />
                   <View style={{ alignItems: "center", marginTop: -15 }}>
-                    {ch === 0 ? (
+                    {ch % 3 === 0 ? (
                       <View style={{ flexDirection: "row", gap: 7 }}>
                         <Tree />
                         <Tree small />
                       </View>
-                    ) : ch === 1 ? (
+                    ) : ch % 3 === 1 ? (
                       <Mountain
                         colour={game === "maze" ? "#7994AA" : "#ACA0C2"}
                       />
@@ -223,43 +227,71 @@ export function JourneyMap({
             </View>
           );
         })}
-        {Array.from({ length: PUZZLES - 1 }, (_, i) =>
-          Array.from({ length: 12 }, (_, j) => {
-            const t = j / 12,
-              u = (j + 1) / 12;
-            const point = (v: number) => ({
-              x: x(i) + (x(i + 1) - x(i)) * (v * v * (3 - 2 * v)),
-              y: y(i) + 26 - step * v,
-            });
-            const a = point(t),
-              b = point(u),
-              length = Math.hypot(b.x - a.x, b.y - a.y) + 3;
-            return (
+        <Svg
+          pointerEvents="none"
+          width="100%"
+          height={height}
+          style={{ position: "absolute" }}
+          viewBox={`-215 0 430 ${height}`}
+          preserveAspectRatio="none"
+        >
+          {Array.from({ length: PUZZLES - 1 }, (_, i) => (
+            <Path
+              key={i}
+              d={`M${x(i)},${y(i) + 26} C${x(i)},${y(i) - 16} ${x(i + 1)},${y(i + 1) + 64} ${x(i + 1)},${y(i + 1) + 26}`}
+              stroke={completed.has(i) ? "#E9B764" : "#FFFFFFBC"}
+              strokeWidth={14}
+              fill="none"
+              strokeLinecap="round"
+            />
+          ))}
+        </Svg>
+        {Array.from({ length: PUZZLES / 10 }, (_, ch) => (
+          <React.Fragment key={`gate:${ch}`}>
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                top: y(ch * 10) + 45,
+                left: 12,
+                alignItems: "center",
+              }}
+            >
+              <Doodle name="gate" size={32} />
+              <Text style={{ fontSize: 9, color: C.ink }}>ENTRY {ch + 1}</Text>
+            </View>
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                top: y(ch * 10 + 9) - 25,
+                right: 12,
+                alignItems: "center",
+              }}
+            >
+              <Doodle name="gate" size={32} />
+              <Text style={{ fontSize: 9, color: C.ink }}>EXIT</Text>
+            </View>
+            {ch < PUZZLES / 10 - 1 && (
               <View
-                key={`${i}-${j}`}
                 pointerEvents="none"
                 style={{
                   position: "absolute",
-                  left: "50%",
-                  marginLeft: (a.x + b.x) / 2 - 7,
-                  top: (a.y + b.y) / 2 - length / 2,
-                  width: 14,
-                  height: length,
-                  borderRadius: 8,
-                  backgroundColor: completed.has(i) ? "#E9B764" : "#FFFFFFBC",
-                  borderLeftWidth: 3,
-                  borderRightWidth: 3,
-                  borderColor: completed.has(i) ? "#F9DEA1" : "#D8C5DD",
-                  transform: [
-                    {
-                      rotate: `${(-Math.atan2(b.x - a.x, b.y - a.y) * 180) / Math.PI}deg`,
-                    },
-                  ],
+                  top: y(ch * 10 + 9) - 48,
+                  left: "42%",
+                  backgroundColor: ch % 2 ? "#A8D2DA" : "#C99F72",
+                  borderRadius: 12,
+                  padding: 6,
                 }}
-              />
-            );
-          }),
-        )}
+              >
+                <Doodle name={ch % 2 ? "boat" : "gate"} size={28} />
+                <Text style={{ fontSize: 8 }}>
+                  {ch % 2 ? "BOAT" : "BRIDGE"}
+                </Text>
+              </View>
+            )}
+          </React.Fragment>
+        ))}
         {Array.from({ length: PUZZLES }, (_, i) => {
           const locked = i > next,
             solved = completed.has(i);
@@ -307,7 +339,19 @@ export function JourneyMap({
                     color: locked ? "#ECE8F2" : "#FFF9E9",
                   }}
                 >
-                  {locked ? "⌁" : i + 1}
+                  {nodeKind(i) === "normal" ? (
+                    locked ? (
+                      "⌁"
+                    ) : (
+                      i + 1
+                    )
+                  ) : (
+                    <Doodle
+                      name={nodeKind(i) === "dragon" ? "dragon" : "danger"}
+                      size={27}
+                      color={locked ? "#ECE8F2" : "#FFF9E9"}
+                    />
+                  )}
                 </Text>
                 {solved && (
                   <Text
@@ -315,10 +359,10 @@ export function JourneyMap({
                       position: "absolute",
                       bottom: -22,
                       color: "#CA8D32",
-                      fontSize: 19,
+                      fontSize: 12,
                     }}
                   >
-                    ★
+                    {"★".repeat(stars.get(i) || 1)}
                   </Text>
                 )}
               </Pressable>

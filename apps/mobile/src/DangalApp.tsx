@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   BackHandler,
@@ -13,14 +13,15 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
 import { Attempt, compareAttempts } from "./engine";
-import { PUZZLES, streak, unlocked } from "./engine/journey";
+import { PUZZLES, streak, unlocked, stars } from "./engine/journey";
 import { LocalState } from "./storage/types";
 import { loadState, saveState } from "./storage";
 import { JourneyMap } from "./JourneyMap";
+import { ChapterCrossing } from "./ChapterCrossing";
 import { Celebration } from "./Celebration";
 import { ThemeShop } from "./ThemeShop";
 import { Music } from "./Music";
@@ -32,7 +33,19 @@ import { emitSound } from "./sound";
 import { useSocial } from "./online/Social";
 import { ArenaPanel, RankingsPanel, MatchSummary } from "./online/ArenaPanel";
 import { ActiveGame, GameScreen, FinishStats } from "./GameScreen";
+import { ProfileScreen } from "./ProfileScreen";
+import { InviteNotice } from "./online/InviteNotice";
+import { IconButton, GameNav } from "./Doodle";
 import { Button, C, styles } from "./ui";
+type Panel =
+  | "profile"
+  | "settings"
+  | "battle"
+  | "themes"
+  | "friends"
+  | "online"
+  | "rankings"
+  | null;
 type Round = {
   game: ActiveGame;
   index: number;
@@ -54,6 +67,7 @@ const names = { zip: "Number Trail", maze: "Maze Runner" };
 export default function DangalApp() {
   const social = useSocial();
   const [home, setHome] = useState(true),
+    [crossing, setCrossing] = useState<number | null>(null),
     [onlineResult, setOnlineResult] = useState<string | null>(null),
     [pendingSubmit, setPendingSubmit] = useState<{
       id: string;
@@ -61,21 +75,32 @@ export default function DangalApp() {
     } | null>(null),
     [submitError, setSubmitError] = useState("");
   const latestState = useRef<LocalState | null>(null),
-    playedMatch = useRef("");
-  const { friend } = useLocalSearchParams<{ friend?: string }>();
+    playedMatch = useRef(""),
+    shownOutcome = useRef("");
+  const router = useRouter();
+  const { friend, screen } = useLocalSearchParams<{
+    friend?: string;
+    screen?: string;
+  }>();
+  const panel: Panel = [
+    "profile",
+    "settings",
+    "battle",
+    "themes",
+    "friends",
+    "online",
+    "rankings",
+  ].includes(screen || "")
+    ? (screen as Panel)
+    : null;
+  const setPanel = useCallback(
+    (value: Panel) => router.setParams({ screen: value || "" }),
+    [router],
+  );
   const [state, setState] = useState<LocalState | null>(null),
     [game, setGame] = useState<ActiveGame>("zip"),
     [round, setRound] = useState<Round | null>(null),
     [result, setResult] = useState<Attempt | null>(null),
-    [panel, setPanel] = useState<
-      | "settings"
-      | "battle"
-      | "themes"
-      | "friends"
-      | "online"
-      | "rankings"
-      | null
-    >(friend ? "friends" : null),
     [battle, setBattle] = useState<Battle | null>(null),
     [players, setPlayers] = useState(["Player 1", "Player 2"]),
     [error, setError] = useState(""),
@@ -85,7 +110,7 @@ export default function DangalApp() {
       const id = setTimeout(() => setPanel("friends"), 0);
       return () => clearTimeout(id);
     }
-  }, [friend]);
+  }, [friend, setPanel]);
   useEffect(() => {
     const m = social.match;
     if (!state || !m || m.state !== "active" || playedMatch.current === m.id)
@@ -115,7 +140,7 @@ export default function DangalApp() {
       Math.max(0, Date.parse(m.starts_at!) - Date.parse(m.server_now)),
     );
     return () => clearTimeout(timer);
-  }, [social.match, social.profile, state]);
+  }, [social.match, social.profile, state, setPanel]);
   useEffect(() => {
     if (
       !round?.matchId ||
@@ -125,10 +150,24 @@ export default function DangalApp() {
       return;
     const t = setTimeout(() => {
       setRound(null);
+      setResult(null);
+      setOnlineResult(social.match!.id);
       setPanel("online");
     }, 0);
     return () => clearTimeout(t);
-  }, [round, social.match]);
+  }, [round, social.match, setPanel]);
+  useEffect(() => {
+    const m = social.match;
+    if (!m || m.state !== "finished" || shownOutcome.current === m.id) return;
+    const timer = setTimeout(() => {
+      shownOutcome.current = m.id;
+      setRound(null);
+      setResult(null);
+      setOnlineResult(m.id);
+      setPanel("online");
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [social.match, setPanel]);
   const writing = useRef(Promise.resolve());
   useEffect(() => {
     loadState()
@@ -140,6 +179,10 @@ export default function DangalApp() {
   }, []);
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (crossing !== null) {
+        setCrossing(null);
+        return true;
+      }
       if (panel) {
         setPanel(null);
         return true;
@@ -158,7 +201,7 @@ export default function DangalApp() {
       return false;
     });
     return () => sub.remove();
-  }, [panel, round, result, home, social]);
+  }, [panel, round, result, home, social, setPanel, crossing]);
   const update = (next: LocalState) => {
     latestState.current = next;
     setState(next);
@@ -203,7 +246,17 @@ export default function DangalApp() {
     if (state.settings.haptics && Platform.OS !== "web")
       Haptics.selectionAsync().catch(() => {});
   };
-  const start = (index: number) => {
+  const start = (index: number, crossed = false) => {
+    if (
+      !crossed &&
+      index > 0 &&
+      index % 10 === 0 &&
+      result?.level === index - 1 &&
+      !completed.has(index)
+    ) {
+      setCrossing(index);
+      return;
+    }
     tap();
     emitSound("level");
     setOnlineResult(null);
@@ -215,7 +268,7 @@ export default function DangalApp() {
       game,
       index,
       variant: 0,
-      name: current.name,
+      name: social.profile?.display_name || current.name,
       profileId: current.id,
     });
   };
@@ -337,12 +390,28 @@ export default function DangalApp() {
         sound={state.settings.sound}
         celebration={result?.id ?? null}
       />
-      {round ? (
+      {crossing !== null ? (
+        <ChapterCrossing
+          chapter={Math.floor(crossing / 10)}
+          reducedMotion={settings.reducedMotion}
+          onEnter={() => {
+            const i = crossing;
+            setCrossing(null);
+            start(i, true);
+          }}
+        />
+      ) : round ? (
         <GameScreen
           key={`${round.game}-${round.index}-${round.profileId}`}
           theme={activeTheme}
           gems={wallet.gems}
-          playerName={round.name}
+          playerName={round.sessionId && !round.matchId ? round.name : social.profile?.display_name || round.name}
+          haptics={settings.haptics}
+          reducedMotion={settings.reducedMotion}
+          avatar={social.profile?.avatar ?? current.avatar}
+          photo={social.profile?.avatar_url}
+          onProfile={() => setPanel("profile")}
+          onGems={() => setPanel("themes")}
           onHint={payHint}
           online={!!round.matchId}
           game={round.game}
@@ -366,7 +435,10 @@ export default function DangalApp() {
         >
           {onlineResult && (
             <>
-              <MatchSummary matchId={onlineResult} />
+              <MatchSummary
+                matchId={onlineResult}
+                reducedMotion={settings.reducedMotion}
+              />
               {!!submitError && (
                 <Text style={styles.subtitle}>{submitError}</Text>
               )}
@@ -429,6 +501,10 @@ export default function DangalApp() {
         </Celebration>
       ) : home ? (
         <LandingScreen
+          photo={social.profile?.avatar_url}
+          avatar={social.profile?.avatar ?? current.avatar}
+          onProfile={() => setPanel("profile")}
+          onGems={() => setPanel("themes")}
           name={social.profile?.display_name || current.name}
           gems={wallet.gems}
           game={game}
@@ -542,6 +618,18 @@ export default function DangalApp() {
             reducedMotion={settings.reducedMotion}
             next={next}
             completed={completed}
+            stars={
+              new Map(
+                activeAttempts.map((a) => [
+                  a.level,
+                  Math.max(
+                    ...activeAttempts
+                      .filter((b) => b.level === a.level)
+                      .map(stars),
+                  ),
+                ]),
+              )
+            }
             onPlay={start}
           />
           <View
@@ -558,38 +646,19 @@ export default function DangalApp() {
               label={`${t("Play", "खेलें")} · ${t("Puzzle", "पज़ल")} ${next + 1} →`}
               onPress={() => start(next)}
             />
-            <View style={styles.row}>
-              <View style={{ flex: 1 }}>
-                <Button
-                  label={t("⚔ Battle", "⚔ बैटल")}
-                  secondary
-                  onPress={() => setPanel("battle")}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Button
-                  label={t("♧ Friends", "♧ फ्रेंड्स")}
-                  secondary
-                  onPress={() => setPanel("friends")}
-                />
-              </View>
-              <Button
-                label="⚔ Online"
-                secondary
-                onPress={() => setPanel("online")}
-              />
-              <Button
-                label="♛ Ranks"
-                secondary
-                onPress={() => setPanel("rankings")}
-              />
-            </View>
+            <GameNav
+              onFriends={() => setPanel("friends")}
+              onOnline={() => setPanel("online")}
+              onFamily={() => setPanel("battle")}
+              onRanks={() => setPanel("rankings")}
+              onSettings={() => setPanel("settings")}
+            />
           </View>
         </>
       )}
       <Modal
         visible={panel !== null}
-        transparent
+        presentationStyle="fullScreen"
         animationType={settings.reducedMotion ? "none" : "fade"}
         onRequestClose={() => setPanel(null)}
       >
@@ -597,33 +666,58 @@ export default function DangalApp() {
           <SafeAreaView
             style={{
               flex: 1,
-              backgroundColor: "#000A",
-              justifyContent: "center",
-              padding: 20,
+              backgroundColor: C.bg,
+              padding: 16,
             }}
           >
             <ScrollView
-              contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+              contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
             >
-              <View style={styles.card}>
+              <View style={{ flex: 1, gap: 18 }}>
                 <View style={styles.between}>
                   <Text style={styles.h2}>
-                    {panel === "settings"
-                      ? t("Settings", "सेटिंग्स")
-                      : panel === "themes"
-                        ? "Themes"
-                        : panel === "friends"
-                          ? "Friends"
-                          : panel === "online"
-                            ? "Online arena"
-                            : panel === "rankings"
-                              ? "Rankings"
-                              : t("Local battle", "लोकल बैटल")}
+                    {panel === "profile"
+                      ? "Your profile"
+                      : panel === "settings"
+                        ? t("Settings", "सेटिंग्स")
+                        : panel === "themes"
+                          ? "Themes"
+                          : panel === "friends"
+                            ? "Friends"
+                            : panel === "online"
+                              ? "Online arena"
+                              : panel === "rankings"
+                                ? "Rankings"
+                                : t("Local battle", "लोकल बैटल")}
                   </Text>
-                  <Button label="×" secondary onPress={() => setPanel(null)} />
+                  <IconButton
+                    name="back"
+                    label="Back"
+                    onPress={() => setPanel(null)}
+                  />
                 </View>
-                {panel === "online" ? (
-                  <ArenaPanel game={game} onLogin={() => setPanel("friends")} />
+                {panel === "profile" ? (
+                  <ProfileScreen
+                    key={social.profile?.id || current.id}
+                    name={current.name}
+                    onLogin={() => setPanel("friends")}
+                    onLocal={(name, avatar) => {
+                      const latest = latestState.current || state;
+                      update({
+                        ...latest,
+                        profiles: latest.profiles.map((p) =>
+                          p.id === current.id ? { ...p, name, avatar } : p,
+                        ),
+                      });
+                    }}
+                  />
+                ) : panel === "online" ? (
+                  <ArenaPanel
+                    reducedMotion={settings.reducedMotion}
+                    game={game}
+                    onGame={setGame}
+                    onLogin={() => setPanel("friends")}
+                  />
                 ) : panel === "rankings" ? (
                   <RankingsPanel onLogin={() => setPanel("friends")} />
                 ) : panel === "friends" ? (
@@ -646,22 +740,6 @@ export default function DangalApp() {
                   />
                 ) : panel === "settings" ? (
                   <>
-                    <TextInput
-                      accessibilityLabel="Player name"
-                      placeholder="Player name"
-                      placeholderTextColor={C.muted}
-                      value={current.name}
-                      maxLength={24}
-                      onChangeText={(name) =>
-                        update({
-                          ...state,
-                          profiles: state.profiles.map((p) =>
-                            p.id === current.id ? { ...p, name } : p,
-                          ),
-                        })
-                      }
-                      style={styles.input}
-                    />
                     {[
                       ["Haptics", "haptics"],
                       ["Music", "music"],
@@ -675,7 +753,10 @@ export default function DangalApp() {
                           value={
                             settings[
                               key as
-                                "haptics" | "reducedMotion" | "music" | "sound"
+                                | "haptics"
+                                | "reducedMotion"
+                                | "music"
+                                | "sound"
                             ]
                           }
                           onValueChange={(v) =>
@@ -720,7 +801,7 @@ export default function DangalApp() {
                       onPress={share}
                     />
                     <Text style={styles.subtitle}>
-                      v0.5.0 ·{" "}
+                      v0.6.0 ·{" "}
                       {t(
                         "Progress saved on this phone",
                         "प्रगति इस फोन पर सेव है",
@@ -783,6 +864,7 @@ export default function DangalApp() {
           </SafeAreaView>
         )}
       </Modal>
+      <InviteNotice />
       {!!error && (
         <View
           style={{

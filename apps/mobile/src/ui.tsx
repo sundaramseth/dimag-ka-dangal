@@ -22,8 +22,19 @@ export const styles = StyleSheet.create({
     alignSelf: "center",
     gap: 18,
   },
-  title: { fontSize: 26, fontWeight: "800", color: C.ink, letterSpacing: -1 },
-  subtitle: { fontSize: 13, color: C.muted, lineHeight: 19 },
+  title: {
+    fontFamily: "DangalTitle",
+    fontSize: 26,
+    fontWeight: "800",
+    color: C.ink,
+    letterSpacing: -1,
+  },
+  subtitle: {
+    fontFamily: "DangalTitle",
+    fontSize: 13,
+    color: C.muted,
+    lineHeight: 19,
+  },
   label: { fontSize: 11, fontWeight: "800", letterSpacing: 2, color: C.teal },
   card: {
     padding: 20,
@@ -39,8 +50,18 @@ export const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  h2: { fontSize: 18, fontWeight: "800", color: C.ink },
-  text: { fontSize: 13, color: C.ink, lineHeight: 19 },
+  h2: {
+    fontFamily: "DangalGame",
+    fontSize: 18,
+    fontWeight: "800",
+    color: C.ink,
+  },
+  text: {
+    fontFamily: "DangalGame",
+    fontSize: 13,
+    color: C.ink,
+    lineHeight: 19,
+  },
   input: {
     minHeight: 50,
     borderRadius: 14,
@@ -133,6 +154,7 @@ export function Button({
     >
       <Text
         style={{
+          fontFamily: "DangalGame",
           fontSize: 13,
           fontWeight: "800",
           color: C.ink,

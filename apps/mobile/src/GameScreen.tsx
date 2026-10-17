@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AppState, Text, View, useWindowDimensions } from "react-native";
+import {
+  AppState,
+  Text,
+  View,
+  useWindowDimensions,
+  Platform,
+  Vibration,
+  Pressable,
+  Animated,
+} from "react-native";
 import {
   Attempt,
   makeZipLevel,
@@ -9,11 +18,16 @@ import {
 } from "./engine";
 import { makeMaze, mazeSolved, mazeValid } from "./engine/maze";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Character, STORIES } from "./Character";
+import { DangerScene } from "./DangerScene";
+import { nodeKind } from "./engine/journey";
+import { STORIES } from "./Character";
 import { emitSound } from "./sound";
 import { secondsText } from "./engine/rewards";
 import { Theme, THEMES } from "./themes";
 import { ZipBoard } from "./ZipBoard";
+import * as Haptics from "expo-haptics";
+import { ProfileIcon } from "./ProfileScreen";
+import { IconButton } from "./Doodle";
 import { Button, C, styles } from "./ui";
 export type FinishStats = Pick<Attempt, "elapsedMs" | "moves" | "assisted"> & {
   path: number[];
@@ -31,7 +45,19 @@ export function GameScreen({
   playerName = "Player",
   onHint = () => false,
   online = false,
+  haptics = true,
+  reducedMotion = false,
+  avatar = -1,
+  photo,
+  onProfile,
+  onGems,
 }: {
+  haptics?: boolean;
+  reducedMotion?: boolean;
+  avatar?: number;
+  photo?: string;
+  onProfile?: () => void;
+  onGems?: () => void;
   gems?: number;
   playerName?: string;
   onHint?: () => boolean;
@@ -58,7 +84,18 @@ export function GameScreen({
     moveCount = useRef(0),
     elapsed = useRef(0),
     tick = useRef(0),
-    active = useRef(true);
+    active = useRef(true),
+    lastHaptic = useRef(0),
+    lastBump = useRef(0);
+  const [blocked, setBlocked] = useState(false),
+    [blink] = useState(() => new Animated.Value(1));
+  const bumpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (bumpTimer.current) clearTimeout(bumpTimer.current);
+    },
+    [],
+  );
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const compact = height - insets.top - insets.bottom < 600;
@@ -91,9 +128,14 @@ export function GameScreen({
       level.kind === "zip" ? zipSolved(level, next) : mazeSolved(level, next);
     if (solved && !done.current) {
       done.current = true;
+      if (haptics && Platform.OS !== "web")
+        void Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success,
+        ).catch(() => {});
       onFinish({
         elapsedMs:
-          elapsed.current + (active.current || online ? Date.now() - tick.current : 0),
+          elapsed.current +
+          (active.current || online ? Date.now() - tick.current : 0),
         path: next,
         moves: moveCount.current,
         assisted: assisted || hint,
@@ -102,7 +144,9 @@ export function GameScreen({
   };
   const onCells = (cells: number[]) => {
     if (done.current) return;
-    let next = trail.current, moves = 0, blocked = false;
+    let next = trail.current,
+      moves = 0,
+      blocked = false;
     for (const cell of cells) {
       if (cell === next.at(-1)) continue;
       if (next.length > 1 && cell === next.at(-2)) {
@@ -111,18 +155,54 @@ export function GameScreen({
         continue;
       }
       const candidate = [...next, cell];
-      const valid = level.kind === "zip"
-        ? zipPrefixError(level, candidate) === null
-        : mazeValid(level, candidate);
-      if (!valid) { blocked = true; continue; }
+      const valid =
+        level.kind === "zip"
+          ? zipPrefixError(level, candidate) === null
+          : mazeValid(level, candidate);
+      if (!valid) {
+        blocked = true;
+        continue;
+      }
       next = candidate;
       moves++;
-      if (level.kind === "zip" ? next.length === level.size ** 2 : cell === level.end) break;
+      if (
+        level.kind === "zip"
+          ? next.length === level.size ** 2
+          : cell === level.end
+      )
+        break;
     }
     // Commit a coalesced input batch once, avoiding a separate render per cell.
-    if (moves) { emitSound("move"); apply(next, false, moves); }
-    else if (blocked) {
+    if (moves) {
+      emitSound("move");
+      if (
+        haptics &&
+        Platform.OS !== "web" &&
+        Date.now() - lastHaptic.current > 65
+      ) {
+        lastHaptic.current = Date.now();
+        void Haptics.selectionAsync().catch(() => {});
+      }
+      apply(next, false, moves);
+    }
+    if (blocked && !done.current) {
+      if (Date.now() - lastBump.current < 250) return;
+      lastBump.current = Date.now();
       emitSound("bump");
+      if (haptics && Platform.OS !== "web") Vibration.vibrate([0, 25, 45, 25]);
+      if (!reducedMotion)
+        Animated.sequence(
+          [0.45, 1, 0.45, 1].map((toValue) =>
+            Animated.timing(blink, {
+              toValue,
+              duration: 65,
+              useNativeDriver: true,
+            }),
+          ),
+        ).start();
+      setBlocked(true);
+      if (bumpTimer.current) clearTimeout(bumpTimer.current);
+      bumpTimer.current = setTimeout(() => setBlocked(false), 240);
       setMessage(hi ? "रास्ता बदलें" : "Try another route");
     }
   };
@@ -138,25 +218,40 @@ export function GameScreen({
       }}
     >
       <View style={styles.between}>
-        <Button label="‹" secondary onPress={onExit} />
+        <IconButton name="back" label="Leave puzzle" onPress={onExit} />
         <Text style={styles.h2}>
           {game === "zip" ? "Number Trail" : "Maze Runner"}
         </Text>
         <Text style={styles.text}>{secondsText(seconds)}</Text>
       </View>
       <View style={styles.between}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Character game={game} story={Math.floor(index / 10)} size={28} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open profile"
+          onPress={onProfile}
+          style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+        >
+          <ProfileIcon
+            photo={photo}
+            story={avatar >= 0 ? avatar : Math.floor(index / 10)}
+            size={28}
+          />
           <Text numberOfLines={1} style={{ ...styles.text, maxWidth: 105 }}>
             {playerName}
           </Text>
-        </View>
-        <Text
-          accessibilityLabel={`${gems} gems`}
-          style={{ fontSize: 15, fontWeight: "900", color: theme.ink }}
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open gems and themes"
+          onPress={onGems}
         >
-          💎 {gems}
-        </Text>
+          <Text
+            accessibilityLabel={`${gems} gems`}
+            style={{ fontSize: 15, fontWeight: "900", color: theme.ink }}
+          >
+            💎 {gems}
+          </Text>
+        </Pressable>
       </View>
       <View style={styles.between}>
         <Text style={styles.label}>
@@ -164,15 +259,30 @@ export function GameScreen({
         </Text>
         <Text style={styles.subtitle}>
           {level.kind === "maze"
-            ? `${STORIES[Math.min(2, Math.floor(index / 10))].name} → ⌂`
+            ? `${STORIES[Math.floor(index / 10) % STORIES.length].name} → ⌂`
             : `${path.length}/${level.size ** 2}`}
           {assisted ? " · ✦" : ""}
         </Text>
       </View>
-      <View style={{ alignItems: "center", gap: compact ? 4 : 10 }}>
+      {nodeKind(index) !== "normal" && (
+        <DangerScene
+          dragon={nodeKind(index) === "dragon"}
+          reducedMotion={reducedMotion}
+        />
+      )}
+      <Animated.View
+        style={{
+          alignItems: "center",
+          gap: compact ? 4 : 10,
+          borderWidth: 2,
+          borderColor: blocked ? "#D85D51" : "transparent",
+          borderRadius: 12,
+          opacity: blink,
+        }}
+      >
         <ZipBoard
           theme={theme}
-          story={Math.floor(index / 10)}
+          story={avatar >= 0 ? avatar : Math.floor(index / 10)}
           onCells={onCells}
           maze={game === "maze"}
           level={level}
@@ -181,7 +291,13 @@ export function GameScreen({
           hi={hi}
           maxWidth={Math.max(
             180,
-            Math.min(360, height - insets.top - insets.bottom - 340),
+            Math.min(
+              560,
+              height -
+                insets.top -
+                insets.bottom -
+                (nodeKind(index) !== "normal" ? 300 : 260),
+            ),
           )}
         />
         <Text style={{ color: C.muted, fontSize: 12, textAlign: "center" }}>
@@ -199,7 +315,7 @@ export function GameScreen({
         >
           {message}
         </Text>
-      </View>
+      </Animated.View>
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
           <Button

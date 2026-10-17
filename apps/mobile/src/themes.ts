@@ -86,7 +86,9 @@ export const THEMES: Record<ThemeId, Theme> = {
   },
 };
 export const chapterTheme = (i: number): ThemeId =>
-  i < 10 ? "forest" : i < 20 ? "alpine" : "falls";
+  (["forest", "alpine", "falls", "twilight", "glacier", "ember"] as ThemeId[])[
+    Math.floor(i / 10) % 6
+  ];
 export const effectiveTheme = (wallet: Wallet, index: number) =>
   THEMES[wallet.selected === "auto" ? chapterTheme(index) : wallet.selected];
 
@@ -106,11 +108,9 @@ export function gameTheme(
       : {
           ...t,
           name: ["Lumi Gardens", "Starlight Steps", "Aurora Isles"][
-            Math.min(2, Math.floor(index / 10))
+            Math.floor(index / 10) % 3
           ],
-          ground: ["#E8DEF4", "#DCE9F8", "#D9F0EA"][
-            Math.min(2, Math.floor(index / 10))
-          ],
+          ground: ["#E8DEF4", "#DCE9F8", "#D9F0EA"][Math.floor(index / 10) % 3],
           field: "#FCF9FF",
           wall: "#776398",
           path: wallet.selected === "auto" ? "#AE71CF" : t.path,

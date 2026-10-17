@@ -32,40 +32,65 @@ export const STORIES = [
     sky: "#9F91C8",
   },
 ];
+const extra = [
+  ["Rumi", "Sunwheel Sanctuary", "#EBC970", "#A77A32", "#CE725F"],
+  ["Tara", "Crystal Caverns", "#B3A2E4", "#6F5C9F", "#5DB7BD"],
+  ["Bobo", "Copper Canyon", "#E9A77F", "#995A48", "#D9C256"],
+  ["Kiki", "Wildwood Crossing", "#9FC9A1", "#4E805E", "#BD83B1"],
+  ["Zoya", "Coral Compass", "#E9AAB8", "#A55D84", "#72AECA"],
+  ["Yuki", "Frostfire Keep", "#D3EAF3", "#6893B0", "#D69060"],
+  ["Rio", "Dragonlight Harbour", "#B9D78D", "#6E8F48", "#D88850"],
+  ["Aru", "Starglass Summit", "#B5C1E9", "#6674A0", "#D2A65B"],
+  ["Nova", "Crown of Dawn", "#F0D39E", "#B58954", "#A382CE"],
+];
+for (const [name, title, colour, ear, scarf] of extra)
+  STORIES.push({
+    name,
+    title,
+    colour,
+    ear,
+    scarf,
+    role: `Help ${name} reach the chapter gate`,
+    ground: colour + "88",
+    sky: ear,
+  });
+export type Mood = "idle" | "happy" | "victory" | "sad" | "blocked";
 export function Character({
   story = 0,
   game = "maze",
   size = 84,
   animate = false,
   reducedMotion = false,
+  mood = "idle",
 }: {
   story?: number;
+  mood?: Mood;
   game?: "maze" | "zip";
   size?: number;
   animate?: boolean;
   reducedMotion?: boolean;
 }) {
   const [bob] = useState(() => new Animated.Value(0));
-  const s = STORIES[Math.min(2, Math.floor(story))];
+  const s = STORIES[Math.abs(Math.floor(story)) % STORIES.length];
   useEffect(() => {
     if (!animate || reducedMotion) return;
     const a = Animated.loop(
       Animated.sequence([
         Animated.timing(bob, {
           toValue: -6,
-          duration: 1300,
+          duration: mood === "victory" ? 350 : 1300,
           useNativeDriver: true,
         }),
         Animated.timing(bob, {
           toValue: 0,
-          duration: 1300,
+          duration: mood === "victory" ? 350 : 1300,
           useNativeDriver: true,
         }),
       ]),
     );
     a.start();
     return () => a.stop();
-  }, [animate, reducedMotion, bob]);
+  }, [animate, reducedMotion, bob, mood]);
   return (
     <View
       accessible
@@ -253,7 +278,7 @@ export function Character({
               left,
               top: game === "zip" ? 44 : 46,
               width: 7,
-              height: 10,
+              height: mood === "happy" || mood === "victory" ? 4 : 10,
               borderRadius: 5,
               backgroundColor: "#293949",
             }}
@@ -265,11 +290,19 @@ export function Character({
             left: 45,
             top: game === "zip" ? 57 : 59,
             width: 11,
-            height: 7,
+            height: mood === "victory" ? 13 : 7,
             borderRadius: 6,
+            transform: [{ rotate: mood === "sad" ? "180deg" : "0deg" }],
             backgroundColor: "#563F4B",
           }}
         />
+        {mood === "sad" && (
+          <Text
+            style={{ position: "absolute", left: 30, top: 56, fontSize: 18 }}
+          >
+            💧
+          </Text>
+        )}
         {animate && (
           <Text
             style={{
@@ -280,7 +313,7 @@ export function Character({
               color: "#F4C767",
             }}
           >
-            ✦
+            {mood === "victory" ? "✧" : mood === "blocked" ? "!" : "✦"}
           </Text>
         )}
       </Animated.View>

@@ -2,9 +2,15 @@ import React from "react";
 import { View, Text, Pressable, useWindowDimensions } from "react-native";
 import { Character, STORIES } from "./Character";
 import { Button, styles, C } from "./ui";
+import { ProfileIcon } from "./ProfileScreen";
+import { GameNav, IconButton } from "./Doodle";
 import { Tree } from "./Scenery";
 export function LandingScreen({
   name,
+  photo,
+  avatar = -1,
+  onProfile,
+  onGems,
   gems,
   game,
   next,
@@ -18,6 +24,10 @@ export function LandingScreen({
   onSettings,
 }: {
   name: string;
+  photo?: string;
+  avatar?: number;
+  onProfile: () => void;
+  onGems: () => void;
   gems: number;
   game: "maze" | "zip";
   next: number;
@@ -31,7 +41,7 @@ export function LandingScreen({
   onSettings: () => void;
 }) {
   const small = useWindowDimensions().height < 680;
-  const story = Math.min(2, Math.floor(next / 10));
+  const story = Math.floor(next / 10) % STORIES.length;
   const theme = STORIES[story];
   return (
     <View
@@ -45,8 +55,13 @@ export function LandingScreen({
       }}
     >
       <View style={styles.between}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
-          <Character size={30} story={story} game={game} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open profile"
+          onPress={onProfile}
+          style={{ flexDirection: "row", alignItems: "center", gap: 7 }}
+        >
+          <ProfileIcon photo={photo} story={story} size={30} />
           <Text
             numberOfLines={1}
             style={{
@@ -58,32 +73,35 @@ export function LandingScreen({
           >
             {name}
           </Text>
-        </View>
-        <Text
-          accessibilityLabel={`${gems} gems`}
-          style={{
-            backgroundColor: "#FFF6DD",
-            borderRadius: 16,
-            padding: 10,
-            fontWeight: "900",
-            color: "#6C4C23",
-          }}
-        >
-          💎 {gems}
-        </Text>
+        </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Settings"
-          onPress={onSettings}
-          style={styles.chip}
+          accessibilityLabel="Open gems and themes"
+          onPress={onGems}
         >
-          <Text style={{ fontSize: 19 }}>⚙</Text>
+          <Text
+            accessibilityLabel={`${gems} gems`}
+            style={{
+              backgroundColor: "#FFF6DD",
+              borderRadius: 16,
+              padding: 10,
+              fontWeight: "900",
+              color: "#6C4C23",
+            }}
+          >
+            💎 {gems}
+          </Text>
         </Pressable>
+        <IconButton name="settings" label="Settings" onPress={onSettings} />
       </View>
       <View style={{ alignItems: "center" }}>
         <Text
           style={{
             fontSize: small ? 23 : 29,
+            fontFamily: "DangalTitle",
+            textShadowColor: "#FFF1BD",
+            textShadowOffset: { width: 2, height: 3 },
+            textShadowRadius: 1,
             fontWeight: "900",
             letterSpacing: -1,
             color: "#294936",
@@ -174,7 +192,7 @@ export function LandingScreen({
         <View style={{ marginTop: small ? -16 : -12 }}>
           <Character
             game={game}
-            story={story}
+            story={avatar >= 0 ? avatar : story}
             size={small ? 105 : 145}
             animate
             reducedMotion={reducedMotion}
@@ -229,24 +247,13 @@ export function LandingScreen({
         ))}
       </View>
       <Button label={`Play · Puzzle ${next + 1} →`} onPress={onJourney} />
-      <View style={{ gap: 8 }}>
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <Button label="⚔ Play online" secondary onPress={onOnline} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button label="♧ Friends" secondary onPress={onFriends} />
-          </View>
-        </View>
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <Button label="⌂ Family play" secondary onPress={onFamily} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button label="♛ Rankings" secondary onPress={onRanks} />
-          </View>
-        </View>
-      </View>
+      <GameNav
+        onFriends={onFriends}
+        onOnline={onOnline}
+        onFamily={onFamily}
+        onRanks={onRanks}
+        onSettings={onSettings}
+      />
     </View>
   );
 }
