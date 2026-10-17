@@ -7,7 +7,7 @@ This release addresses the 14-point tester review. It is an ad-free review build
 | Result for both players | Authoritative server winner is announced by name on both result views. The unfinished player is taken to the final result too. Winner cheers/fireworks; opponent receives congratulations/rematch text and a sad companion. A submitted puzzle is not called an online victory. |
 | Google identity | On an authenticated session, an own-user RPC reads Google display name/photo and creates a unique handle automatically. Existing generic Player 1 names are repaired; chosen names/handles remain. Auth UUID remains the account identity. |
 | Live profile edits | Separate full-screen Profile: name, unique handle, Google photo, companion, optional gender/country. Save updates shared client state immediately, with guarded refresh and Realtime own-profile events. No change to Google account data. |
-| More puzzles | 120 deterministic puzzles per game, 12 chapters of 10. Number Trail grows to 7×7 in later chapters. Existing first 30 boards are preserved. This is a finite playable catalog, not a claim to enumerate every possible puzzle. |
+| More puzzles | 120 deterministic puzzles per game, 12 chapters of 10. Number Trail grows to 7×7 in later chapters and keeps alternate passages rather than walling every non-solution edge. Existing first 30 boards are preserved. This is a finite playable catalog, not a claim to enumerate every possible puzzle. |
 | Touch feedback and celebrations | Throttled selection haptics on accepted moves; double vibration and double visual blink on blocked moves. Solo confetti and delayed reward panel differ from online winner fireworks. Haptics/motion settings are respected. |
 | Map and stars | Shared 1–5-star rule, best historical stars visible on nodes immediately. Dragon gate at each chapter finale, danger pass at puzzle 7. Entry/exit gate markers, boat/bridge crossings and chapter transition animation. |
 | Navigation and screens | Single hand-drawn bottom navigation row; full-screen settings, profile, arena, friends and ranks with doodle back control. Safe-area layout retained. Map connectors use SVG paths instead of thousands of tiny View segments. |
@@ -37,7 +37,8 @@ Hosted checks confirmed five profile columns, three Realtime publication members
 ## Validation completed before native build
 
 - TypeScript and Expo lint.
-- 19 engine tests, including 360 new-catalog Maze/Trail variant combinations, deterministic valid paths, ring seam adjacency, masked footprints and exact star boundaries; existing 600-maze and Number Trail regression suites also pass.
+- 20 engine tests, including 360 new-catalog Maze/Trail variant combinations, deterministic valid paths, ring seam adjacency, masked footprints and exact star boundaries; existing 600-maze and Number Trail regression suites also pass.
+- 240 legacy/new boards compared: first 30 × four seeds × both games are identical.
 - PKCE secure-random/S256 adapter regression.
 - PGlite friends/arena isolation and ranking tests; profile bootstrap, unique handles, own-row reads, custom-name preservation and invalid avatar/country/anonymous denial tests.
 - Web export and standalone Android JS/assets export.
