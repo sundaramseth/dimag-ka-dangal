@@ -2,7 +2,7 @@
 
 An Android-first, ad-free puzzle adventure with **Number Trail** and **Maze Runner**. v0.5.0 adds an opening screen, original companions, distinct game worlds, visible gems, paid hints, multiple sound effects and an authenticated online arena.
 
-[Version 0.5.0 report](docs/PHASE_5_REPORT.md) · [Google activation](docs/OAUTH_SETUP.md) · [Earlier report](docs/PHASE_4_REPORT.md)
+[0.5.1 login/input fixes](docs/PHASE_5_1_FIXES.md) · [Version 0.5.0 report](docs/PHASE_5_REPORT.md) · [Google activation](docs/OAUTH_SETUP.md) · [Earlier report](docs/PHASE_4_REPORT.md)
 
 The arena database and authenticated path validator are deployed. Friends, presence, same-puzzle matchmaking, match chat and top50/self/friends ranking code are implemented and tested as detailed in the report. **Google provider activation and public email SMTP are still required**; real two-phone Auth/online acceptance is pending. Offline solo/family play needs no login. No fake players or public scores.
 
