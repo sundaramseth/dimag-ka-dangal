@@ -4,7 +4,7 @@ An Android-first, ad-free puzzle adventure with **Number Trail** and **Maze Runn
 
 [0.5.1 login/input fixes](docs/PHASE_5_1_FIXES.md) · [Version 0.5.0 report](docs/PHASE_5_REPORT.md) · [Google activation](docs/OAUTH_SETUP.md) · [Earlier report](docs/PHASE_4_REPORT.md)
 
-The arena database and authenticated path validator are deployed. Friends, presence, same-puzzle matchmaking, match chat and top50/self/friends ranking code are implemented and tested as detailed in the report. **Google provider activation and public email SMTP are still required**; real two-phone Auth/online acceptance is pending. Offline solo/family play needs no login. No fake players or public scores.
+The arena database and authenticated path validator are deployed. Friends, presence, same-puzzle matchmaking, match chat and top50/self/friends ranking code are implemented and tested as detailed in the report. **Google provider is now enabled and its initial redirect is verified. Public email SMTP is still required**; completed phone Google login and real two-phone Auth/online acceptance are pending. Offline solo/family play needs no login. No fake players or public scores.
 
 ## Start
 Requires Node 22.13+ (SDK 57), npm, and an Android phone/emulator for native verification.
@@ -42,7 +42,7 @@ Optional EAS preview config is supplied, but requires your Expo account and is s
 
 ## Implemented / activation gates
 
-Android progress, gems and cosmetic themes persist on this phone with SQLite; the browser preview uses localStorage. Solo/family play stays offline. The shared social provider uses Supabase Auth, protected RPCs, expiring presence, real-player pairing, private match chat and server-validated online results/rankings. Public Google/email activation is still blocked by owner OAuth/SMTP configuration; follow [Google setup](docs/OAUTH_SETUP.md) and verify two tester-owned phones before calling online acceptance complete. No fake players, public scores, ads, paid assets or paid hosting were added. Gems are local cosmetic/hint currency, not cloud-synced or a server-verified balance.
+Android progress, gems and cosmetic themes persist on this phone with SQLite; the browser preview uses localStorage. Solo/family play stays offline. The shared social provider uses Supabase Auth, protected RPCs, expiring presence, real-player pairing, private match chat and server-validated online results/rankings. Google provider activation and initial redirect are verified; public email delivery still needs SMTP and phone Google/session acceptance remains pending. Follow [Google setup](docs/OAUTH_SETUP.md) and verify two tester-owned phones before calling online acceptance complete. No fake players, public scores, ads, paid assets or paid hosting were added. Gems are local cosmetic/hint currency, not cloud-synced or a server-verified balance.
 
 ## Reports
 - [Phased roadmap + full implementation brief](docs/IMPLEMENTATION_PLAN.md)
