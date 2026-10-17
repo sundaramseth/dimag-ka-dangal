@@ -30,6 +30,12 @@ jobs:
           npm run typecheck
           npm test
           npm run lint
+      - name: Verify social database policies
+        working-directory: supabase/tests
+        run: |
+          npm ci
+          node friends.mjs
+          node arena.mjs
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install
       - name: Build standalone test APK
