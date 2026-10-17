@@ -1,4 +1,5 @@
+import { SocialProvider } from "../online/Social";
 import { Stack } from "expo-router";
 export default function Layout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return <SocialProvider><Stack screenOptions={{ headerShown: false }} /></SocialProvider>;
 }
