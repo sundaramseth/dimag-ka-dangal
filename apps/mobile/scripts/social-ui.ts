@@ -107,7 +107,7 @@ async function main() {
         else {
           const name = url.pathname.split("/").at(-1)!;
           calls.push(name);
-          if (name === "dangal_profile_sync") data = profile;
+          if (name === "dangal_profile_sync") data = [profile];
           if (name === "dangal_edit_profile") {
             profile = {
               ...profile,
@@ -117,7 +117,7 @@ async function main() {
               gender: body.p_gender,
               country: body.p_country,
             };
-            data = profile;
+            data = [profile];
           }
           if (name === "dangal_chat") data = [];
           if (name === "dangal_friend_page")
