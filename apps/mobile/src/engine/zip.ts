@@ -73,7 +73,7 @@ export function makeZipLevel(index: number, variant = 0): ZipLevel {
     checkpoints,
     walls: candidates.slice(
       0,
-      index < 2 ? 0 : Math.min(index + 1, candidates.length),
+      index < 2 ? 0 : index < 30 ? Math.min(index + 1, candidates.length) : Math.max(3, Math.floor(candidates.length * (0.25 + (index % 10) / 90))),
     ),
     solution: route,
   };
