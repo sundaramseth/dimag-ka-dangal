@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { makeMaze } from "../src/engine/maze";
 import { makeZipLevel } from "../src/engine/zip";
 async function main() {
-  mkdirSync("test-results",{recursive:true});
+  mkdirSync("test-results", { recursive: true });
   const root = path.resolve("dist");
   const server = createServer((req, res) => {
     let file = path.join(root, (req.url || "/").split("?")[0]);
@@ -33,6 +33,11 @@ async function main() {
     headless: true,
     executablePath: process.env.CHROMIUM_EXECUTABLE || undefined,
     args: [
+      "--use-gl=angle",
+      "--use-angle=swiftshader",
+      "--enable-unsafe-swiftshader",
+      "--in-process-gpu",
+      "--no-zygote",
       "--no-sandbox",
       "--disable-dev-shm-usage",
       "--single-process",
@@ -41,7 +46,10 @@ async function main() {
     ],
   });
   try {
-    const p = await b.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
+    const p = await b.newPage({
+      viewport: { width: 390, height: 844 },
+      hasTouch: true,
+    });
     const touch = await p.context().newCDPSession(p);
     const errors: string[] = [];
     p.on("pageerror", (e) => errors.push(e.message));
@@ -58,7 +66,7 @@ async function main() {
     await p.getByText("PUZZLE ADVENTURES", { exact: true }).waitFor();
     await p.getByLabel("0 gems", { exact: true }).waitFor();
     await p.screenshot({ path: "test-results/landing-preview.png" });
-    await p.getByRole("button", { name: "♧ Friends", exact: true }).click();
+    await p.getByRole("button", { name: "Friends", exact: true }).click();
     await p
       .getByRole("button", { name: "G · Continue with Google", exact: true })
       .waitFor();
@@ -69,17 +77,37 @@ async function main() {
       .getByRole("button", { name: "Create account", exact: true })
       .waitFor();
     let signupRedirect = "";
-    await p.route("**/auth/v1/signup**", async route => {
-      signupRedirect = new URL(route.request().url()).searchParams.get("redirect_to") || "";
-      await route.fulfill({status:400,contentType:"application/json",body:JSON.stringify({code:"test_signup_intercepted",msg:"Verification test intercepted"})});
+    await p.route("**/auth/v1/signup**", async (route) => {
+      signupRedirect =
+        new URL(route.request().url()).searchParams.get("redirect_to") || "";
+      await route.fulfill({
+        status: 400,
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: "test_signup_intercepted",
+          msg: "Verification test intercepted",
+        }),
+      });
     });
-    await p.getByRole("textbox", {name:"Email",exact:true}).fill("fixture@example.test");
-    await p.getByRole("textbox", {name:"Password",exact:true}).fill("fixture-only-password");
-    await p.getByRole("button", {name:"Create account",exact:true}).click();
-    await p.getByText("Verification test intercepted", {exact:true}).waitFor();
-    assert.equal(signupRedirect, "http://127.0.0.1:8082/auth/callback", "Email confirmation returns to app callback");
+    await p
+      .getByRole("textbox", { name: "Email", exact: true })
+      .fill("fixture@example.test");
+    await p
+      .getByRole("textbox", { name: "Password", exact: true })
+      .fill("fixture-only-password");
+    await p
+      .getByRole("button", { name: "Create account", exact: true })
+      .click();
+    await p
+      .getByText("Verification test intercepted", { exact: true })
+      .waitFor();
+    assert.equal(
+      signupRedirect,
+      "http://127.0.0.1:8082/auth/callback",
+      "Email confirmation returns to app callback",
+    );
     await p.unroute("**/auth/v1/signup**");
-    await p.getByRole("button", { name: "×", exact: true }).click();
+    await p.getByRole("button", { name: "Back", exact: true }).click();
     await p.getByRole("button", { name: /Play · Puzzle/ }).click();
     await p.getByText("Your journey", { exact: true }).waitFor();
     const first = await p
@@ -106,29 +134,57 @@ async function main() {
       const a = await box(level.solution[0]);
       const useTouch = game === "maze";
       const down = async (x: number, y: number) => {
-        if (useTouch) await touch.send("Input.dispatchTouchEvent", {type:"touchStart",touchPoints:[{x,y}]});
-        else { await p.mouse.move(x,y); await p.mouse.down(); }
+        if (useTouch)
+          await touch.send("Input.dispatchTouchEvent", {
+            type: "touchStart",
+            touchPoints: [{ x, y }],
+          });
+        else {
+          await p.mouse.move(x, y);
+          await p.mouse.down();
+        }
       };
       const up = async () => {
-        if (useTouch) await touch.send("Input.dispatchTouchEvent", {type:"touchEnd",touchPoints:[]});
+        if (useTouch)
+          await touch.send("Input.dispatchTouchEvent", {
+            type: "touchEnd",
+            touchPoints: [],
+          });
         else await p.mouse.up();
       };
       await down(a.x + a.width / 2, a.y + a.height / 2);
-      const stroke = p.locator('svg path[stroke-linecap="round"]');
+      const stroke = p.getByTestId("puzzle-trail");
       await stroke.waitFor({ state: "attached" });
-      assert.equal(await stroke.count(), 1, "The trail uses one native SVG path");
-      assert(Number(await stroke.getAttribute("stroke-width")) >= 11, "Thicker stroke");
+      assert.equal(
+        await stroke.count(),
+        1,
+        "The trail uses one native SVG path",
+      );
+      assert(
+        Number(await stroke.getAttribute("stroke-width")) >= 11,
+        "Thicker stroke",
+      );
       for (let i = 1; i < level.solution.length; i++) {
         const c = level.solution[i];
         const r = await box(c);
-        const x = r.x + r.width / 2, y = r.y + r.height / 2;
-        if (useTouch) await touch.send("Input.dispatchTouchEvent", {type:"touchMove",touchPoints:[{x,y}]});
-        else await p.mouse.move(x,y, {steps:1});
+        const x = r.x + r.width / 2,
+          y = r.y + r.height / 2;
+        if (useTouch)
+          await touch.send("Input.dispatchTouchEvent", {
+            type: "touchMove",
+            touchPoints: [{ x, y }],
+          });
+        else await p.mouse.move(x, y, { steps: 1 });
         // Resume a stroke over a checkpoint/runner without changing its origin.
-        if (i === Math.floor(level.solution.length / 2)) { await up(); await down(x,y); }
+        if (i === Math.floor(level.solution.length / 2)) {
+          await up();
+          await down(x, y);
+        }
       }
       await up();
-      await p.getByText("Puzzle cleared!", { exact: true }).waitFor();
+      await p
+        .getByText(/^(Puzzle cleared!|Lightning clear!|Puzzle submitted)$/)
+        .waitFor();
     };
     await p
       .getByRole("button", { name: "Puzzle 1, play", exact: true })
@@ -162,7 +218,7 @@ async function main() {
     await p.screenshot({ path: "test-results/maze-preview.png" });
     await p.getByRole("button", { name: "Hint · 💎5", exact: true }).click();
     await p.getByLabel("7 gems", { exact: true }).waitFor();
-    await p.getByRole("button", { name: "‹", exact: true }).click();
+    await p.getByRole("button", { name: "Leave puzzle", exact: true }).click();
     await p.reload();
     await p.getByLabel("7 gems", { exact: true }).waitFor();
     await p
@@ -179,7 +235,7 @@ async function main() {
     await p.getByRole("button", { name: "Journey", exact: true }).click();
     await p.getByLabel("19 gems", { exact: true }).waitFor();
     // Family battle uses deterministic fixture random; no gem farming or free hints.
-    await p.getByRole("button", { name: /Battle/ }).click();
+    await p.getByRole("button", { name: "Family", exact: true }).click();
     await p.getByRole("button", { name: "Start battle", exact: true }).click();
     await solve("maze", 1, 500000);
     await p
@@ -209,7 +265,7 @@ async function main() {
     await p.setViewportSize({ width: 320, height: 568 });
     await p.getByRole("button", { name: "Home", exact: true }).click();
     const last = await p
-      .getByRole("button", { name: "♛ Rankings", exact: true })
+      .getByRole("button", { name: "Ranks", exact: true })
       .boundingBox();
     assert.ok(
       last && last.y + last.height <= 568,
@@ -229,7 +285,7 @@ async function main() {
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     );
-    await p.getByRole("button", { name: "‹", exact: true }).click();
+    await p.getByRole("button", { name: "Leave puzzle", exact: true }).click();
     // Isolated fixture tests later chapters and distinct companions, not production progress.
     await p.evaluate(() => {
       const s = JSON.parse(localStorage.getItem("dangal-state-v1")!);

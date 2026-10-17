@@ -28,6 +28,11 @@ async function main() {
     executablePath: process.env.CHROMIUM_EXECUTABLE,
     headless: true,
     args: [
+      "--use-gl=angle",
+      "--use-angle=swiftshader",
+      "--enable-unsafe-swiftshader",
+      "--in-process-gpu",
+      "--no-zygote",
       "--no-sandbox",
       "--single-process",
       "--disable-gpu",
@@ -50,6 +55,15 @@ async function main() {
       },
     ];
     let inbox: any[] = [];
+    let profile: any = {
+      id: me,
+      handle: "fixture_me",
+      display_name: "Fixture Me",
+      avatar: -1,
+      avatar_url: "",
+      gender: "",
+      country: "",
+    };
     await p.addInitScript(
       ({ me }) => {
         const jwt =
@@ -88,12 +102,24 @@ async function main() {
           url = new URL(req.url());
         const body = req.postDataJSON() || {};
         let data: any = null;
-        if (url.pathname.includes("/rest/v1/dangal_profiles"))
-          data = [{ id: me, handle: "fixture_me", display_name: "Fixture Me" }];
+        if (url.pathname.includes("/rest/v1/dangal_profiles")) data = [profile];
         else if (url.pathname.includes("/auth/v1/user")) data = { id: me };
         else {
           const name = url.pathname.split("/").at(-1)!;
           calls.push(name);
+          if (name === "dangal_profile_sync") data = profile;
+          if (name === "dangal_edit_profile") {
+            profile = {
+              ...profile,
+              handle: body.p_handle,
+              display_name: body.p_name,
+              avatar: body.p_avatar,
+              gender: body.p_gender,
+              country: body.p_country,
+            };
+            data = profile;
+          }
+          if (name === "dangal_chat") data = [];
           if (name === "dangal_friend_page")
             data = body.p_offset ? [] : friends;
           if (name === "dangal_accept_friend")
@@ -156,7 +182,7 @@ async function main() {
     const errors: string[] = [];
     p.on("pageerror", (e) => errors.push(e.message));
     await p.goto("http://127.0.0.1:8084");
-    await p.getByRole("button", { name: "♧ Friends", exact: true }).click();
+    await p.getByRole("button", { name: "Friends", exact: true }).click();
     await p
       .getByRole("button", { name: "Accept friend", exact: true })
       .waitFor();
@@ -170,8 +196,8 @@ async function main() {
     await p.getByRole("button", { name: "Add", exact: true }).click();
     await p.getByText("Friend request sent", { exact: true }).waitFor();
     assert.ok(calls.includes("dangal_request_friend"));
-    await p.getByRole("button", { name: "×", exact: true }).click();
-    await p.getByRole("button", { name: "♛ Rankings", exact: true }).click();
+    await p.getByRole("button", { name: "Back", exact: true }).click();
+    await p.getByRole("button", { name: "Ranks", exact: true }).click();
     await p
       .getByRole("button", { name: "Public · Top 50", exact: true })
       .waitFor();
@@ -183,7 +209,7 @@ async function main() {
       await p.getByText("YOUR POSITION", { exact: true }).count(),
       0,
     );
-    await p.getByRole("button", { name: "×", exact: true }).click();
+    await p.getByRole("button", { name: "Back", exact: true }).click();
     inbox = [
       {
         id: "20000000-0000-4000-8000-000000000001",
@@ -213,19 +239,49 @@ async function main() {
         ],
       },
     ];
-    await p.getByRole("button", { name: "⚔ Play online", exact: true }).click();
+    // Invitation must appear on the landing screen, without opening Arena.
     await p
-      .getByRole("button", { name: "Accept game", exact: true })
+      .getByRole("button", { name: "Accept & play", exact: true })
       .waitFor({ timeout: 12000 });
-    await p.getByRole("button", { name: "Accept game", exact: true }).click();
+    await p.getByRole("button", { name: "Accept & play", exact: true }).click();
+    await p.getByRole("button", { name: "Battle", exact: true }).click();
     await p.getByText("Match found · starting…", { exact: true }).waitFor();
     assert.ok(calls.includes("dangal_accept_match"));
+    inbox = [
+      {
+        ...inbox[0],
+        state: "finished",
+        winner: peer,
+        players: inbox[0].players.map((x: any) => ({
+          ...x,
+          elapsed_ms: x.id === me ? 50000 : 20000,
+        })),
+      },
+    ];
     await p
-      .getByRole("button", { name: "Cancel / leave", exact: true })
-      .click();
+      .getByText("Fixture Friend won the match!", { exact: true })
+      .waitFor({ timeout: 12000 });
+    await p
+      .getByText("Congratulations, Fixture Friend! Ready for a rematch?", {
+        exact: true,
+      })
+      .waitFor();
+    await p.getByRole("button", { name: "Back", exact: true }).click();
+    await p.getByRole("button", { name: "Open profile", exact: true }).click();
+    await p.getByLabel("Player name", { exact: true }).fill("Updated Hero");
+    await p.getByLabel("Username", { exact: true }).fill("updated_hero");
+    await p.getByRole("button", { name: "Choose Kiki", exact: true }).click();
+    await p.getByLabel("Country code", { exact: true }).fill("IN");
+    await p.getByRole("button", { name: "Save profile", exact: true }).click();
+    await p
+      .getByText("Profile saved · updated across the app", { exact: true })
+      .waitFor();
+    await p.getByRole("button", { name: "Back", exact: true }).click();
+    await p.getByText("Updated Hero", { exact: true }).waitFor();
+    await p.screenshot({ path: "test-results/profile-live-preview.png" });
     assert.equal(errors.length, 0, errors.join("\n"));
     console.log(
-      "PASS UI fixtures: incoming accept, live status label, friend send, top50+own below50, 65 friends with no 50-person cap, incoming game accept/cancel. No real users or Auth sessions created.",
+      "PASS UI fixtures: incoming accept, live status label, friend send, top50+own below50, 65 friends with no 50-person cap, global incoming game invitation, loser sees named winner, live profile/avatar/country save. No real users or Auth sessions created.",
     );
   } finally {
     await browser.close();
