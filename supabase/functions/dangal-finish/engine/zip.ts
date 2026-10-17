@@ -15,7 +15,14 @@ export function adjacent(size: number, a: number, b: number) {
   );
 }
 export function makeZipLevel(index: number, variant = 0): ZipLevel {
-  const size = index < 4 ? 4 : index < 7 ? 5 : 6;
+  const size =
+    index < 4
+      ? 4
+      : index < 7
+        ? 5
+        : index < 30
+          ? 6
+          : 6 + (Math.floor(index / 30) % 2);
   let seed = (3229 + index * 7919 + variant * 104729) >>> 0;
   const random = () => {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
@@ -72,7 +79,13 @@ export function makeZipLevel(index: number, variant = 0): ZipLevel {
   };
 }
 export type ZipError =
-  "start" | "bounds" | "repeat" | "adjacent" | "wall" | "order" | "finish";
+  | "start"
+  | "bounds"
+  | "repeat"
+  | "adjacent"
+  | "wall"
+  | "order"
+  | "finish";
 export function zipPrefixError(
   level: ZipLevel,
   path: number[],
