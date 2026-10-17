@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Animated, Text, View } from "react-native";
+import { Animated, Text, View, ScrollView } from "react-native";
+import { stars } from "./engine/journey";
+import { Character } from "./Character";
 import { Attempt } from "./engine";
 import { secondsText } from "./engine/rewards";
 import { C, styles } from "./ui";
@@ -16,6 +18,7 @@ export function Celebration({
   reducedMotion: boolean;
   children: React.ReactNode;
 }) {
+  const online = result.sessionId?.startsWith("online:");
   const [ready, setReady] = useState(false),
     [progress] = useState(() => new Animated.Value(0));
   useEffect(() => {
@@ -32,16 +35,17 @@ export function Celebration({
     };
   }, [progress, reducedMotion]);
   return (
-    <View
+    <ScrollView
+      contentContainerStyle={{ flexGrow: 1 }}
       style={{
         flex: 1,
         padding: 24,
-        justifyContent: "center",
-        gap: 16,
+
         overflow: "hidden",
       }}
     >
       {!reducedMotion &&
+        !online &&
         Array.from({ length: 20 }, (_, i) => (
           <Animated.View
             key={i}
@@ -94,10 +98,24 @@ export function Celebration({
           },
         ]}
       >
-        <Text style={{ color: C.gold, fontSize: 42 }}>
-          ★ {result.assisted ? "☆" : "★"} ★
+        <Text style={{ color: C.gold, fontSize: 36 }}>
+          {!online && "★".repeat(stars(result))}
+          {!online && "☆".repeat(5 - stars(result))}
         </Text>
-        <Text style={styles.title}>Puzzle cleared!</Text>
+        <Character
+          game={result.game === "maze" ? "maze" : "zip"}
+          story={Math.floor(result.level / 10)}
+          size={70}
+          animate={!reducedMotion}
+          mood="happy"
+        />
+        <Text style={styles.title}>
+          {result.sessionId
+            ? "Puzzle submitted"
+            : stars(result) === 5
+              ? "Lightning clear!"
+              : "Puzzle cleared!"}
+        </Text>
         <Text style={{ fontSize: 44, fontWeight: "900", color: C.ink }}>
           {secondsText(result.elapsedMs)}
         </Text>
@@ -123,6 +141,6 @@ export function Celebration({
           <Text style={styles.subtitle}>Collecting rewards…</Text>
         </View>
       )}
-    </View>
+    </ScrollView>
   );
 }
