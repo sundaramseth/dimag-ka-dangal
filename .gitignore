@@ -12,3 +12,6 @@ ios/
 test-results/
 playwright-report/
 dist-android/
+
+supabase/.temp/
+apps/mobile/*-preview.png

@@ -1,8 +1,10 @@
 # Dimag Ka Dangal
 
-An Android-first, ad-free puzzle game with **Number Trail** and **Maze Runner**. v0.4.0 adds gem rewards, delayed celebrations, original music, a bottom-to-top three-chapter journey, unlockable cosmetics and denser crystal-collection mazes. Gameplay stays fixed; progress/wallets persist locally.
+An Android-first, ad-free puzzle adventure with **Number Trail** and **Maze Runner**. v0.5.0 adds an opening screen, original companions, distinct game worlds, visible gems, paid hints, multiple sound effects and an authenticated online arena.
 
-[Version 0.4.0 report](docs/PHASE_4_REPORT.md) · [Online activation](docs/ONLINE_SETUP.md). Friends/auth/requests are connected to the dedicated free Supabase development project; migration, public configuration, hosted database policy tests and anonymous API denial checks are complete. Public tester signup still requires custom SMTP; two-device email/session acceptance remains pending. This is not a claim of deployed multiplayer or a verified public ranking.
+[Version 0.5.0 report](docs/PHASE_5_REPORT.md) · [Google activation](docs/OAUTH_SETUP.md) · [Earlier report](docs/PHASE_4_REPORT.md)
+
+The arena database and authenticated path validator are deployed. Friends, presence, same-puzzle matchmaking, match chat and top50/self/friends ranking code are implemented and tested as detailed in the report. **Google provider activation and public email SMTP are still required**; real two-phone Auth/online acceptance is pending. Offline solo/family play needs no login. No fake players or public scores.
 
 ## Start
 Requires Node 22.13+ (SDK 57), npm, and an Android phone/emulator for native verification.
