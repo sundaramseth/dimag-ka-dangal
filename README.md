@@ -40,10 +40,9 @@ Windows: `gradlew.bat assembleRelease`. The output is normally `app/build/output
 
 Optional EAS preview config is supplied, but requires your Expo account and is subject to free build quotas. No EAS build was claimed or purchased here. An Expo export is a JS/assets bundle, not an APK.
 
-## Implemented / deferred
-Android persistence uses expo-sqlite with parameterized writes and ordered saves. Browser preview uses localStorage. Attempts retained to preserve puzzle unlock history. Results/hints/backgrounding are labelled. Feedback remains local until explicit sharing. Profile and exported family names may contain personal data; share intentionally.
+## Implemented / activation gates
 
-Email auth and handle-based friend requests are connected to Supabase with protected RPCs. Two-device email/session testing remains pending; public boards, live matches, presence/chat, cloud wallet and Node competition backend are subsequent phases. Do not add fake users/scores to imply these work. No ads, phone OTP, AI services or paid hosting.
+Android progress, gems and cosmetic themes persist on this phone with SQLite; the browser preview uses localStorage. Solo/family play stays offline. The shared social provider uses Supabase Auth, protected RPCs, expiring presence, real-player pairing, private match chat and server-validated online results/rankings. Public Google/email activation is still blocked by owner OAuth/SMTP configuration; follow [Google setup](docs/OAUTH_SETUP.md) and verify two tester-owned phones before calling online acceptance complete. No fake players, public scores, ads, paid assets or paid hosting were added. Gems are local cosmetic/hint currency, not cloud-synced or a server-verified balance.
 
 ## Reports
 - [Phased roadmap + full implementation brief](docs/IMPLEMENTATION_PLAN.md)
@@ -51,4 +50,4 @@ Email auth and handle-based friend requests are connected to Supabase with prote
 - [Number Trail / Phase 2 update](docs/PHASE_2_REPORT.md)
 - [Test checklist](docs/TESTING.md)
 
-App code lives in `apps/mobile/src`. Pure engine currently lives in `src/engine`; extract it to `packages/game-engine` when the Node service begins, rather than introducing unused packages now. Planned online stack: Node.js/TypeScript + Supabase Auth/Postgres, Pusher as an optional private-channel transport within verified free quotas.
+App code lives in `apps/mobile/src`. Pure engine currently lives in `src/engine`; extract it to `packages/game-engine` when the Node service begins, rather than introducing unused packages now. Current beta online stack: Supabase Auth/Postgres RPCs plus a TypeScript Edge Function for solved-path validation. A separate Node/Pusher service remains optional future infrastructure, not an unused paid deployment.
